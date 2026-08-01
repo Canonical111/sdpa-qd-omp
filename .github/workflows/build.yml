@@ -1,0 +1,31 @@
+name: build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: openmp, flags: "-O2 -funroll-all-loops -fopenmp", ld: "-fopenmp", gomp_min: 1}
+          - {name: serial, flags: "-O2 -funroll-all-loops",          ld: "",         gomp_min: 0}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y build-essential autoconf automake libtool libqd-dev
+      - run: ./configure --with-qd-includedir=/usr/include --with-qd-libdir=/usr/lib/x86_64-linux-gnu
+             CXXFLAGS="${{ matrix.flags }}" CFLAGS="${{ matrix.flags }}" LDFLAGS="${{ matrix.ld }}"
+      - run: make -j"$(nproc)" || true
+      - name: SPOOLES CC fix if the first make stopped there
+        run: |
+          if [ ! -x sdpa_qd ]; then
+            f=$(find . -path '*spooles*' -name Make.inc | head -1)
+            [ -n "$f" ] && sed -i 's|^# CC = gcc|  CC = gcc|' "$f"
+            d=$(dirname "$f"); ( cd "$d" && find . -name '*.o' -delete && rm -f spooles.a && make global -f makefile ) || true
+            find . -name libspooles.a -o -name spooles.a | head -2
+          fi
+      - run: make -j"$(nproc)"
+      - name: OpenMP presence matches the matrix (static binary; use nm)
+        run: |
+          n=$(nm sdpa_qd | grep -c GOMP || true)
+          [ "${{ matrix.gomp_min }}" -eq 1 ] && [ "$n" -ge 1 ] || { [ "${{ matrix.gomp_min }}" -eq 0 ] && [ "$n" -eq 0 ]; }
+      - run: ./sdpa_qd -ds example1.dat-s -o out.result -p param.sdpa && grep objValPrimal out.result
