@@ -1,6 +1,6 @@
 # Benchmarks — sdpa-qd-omp
 
-Fork base: upstream `766eef3`. thanos: AMD EPYC 7232P, 8 physical cores, Ubuntu.
+Fork base: upstream `766eef3`.
 
 **Read this first.** Upstream sdpa-qd's `main loop time` is process CPU time summed over
 threads -- it *rises* with thread count even when the run gets faster, so any historical
@@ -23,7 +23,7 @@ Solver-internal timers are elapsed time in sdpa-dd/sdpa-gmp; upstream sdpa-qd's 
 reports process CPU time (summed over threads), which this fork fixes -- all qd numbers here
 use external wall time and the corrected clock.
 
-## Results
+## thanos — EPYC 7232P, 8 physical cores
 
 ## thanos-epyc7232p — qd — `wall_s`
 
@@ -68,4 +68,49 @@ the large F3-dominated `arch0` (1.54x). Why quad-double shifts one trajectory wh
 double-double shifts none (20/20 trajectory-neutral) is an open question, documented in the
 companion repository rather than hidden.
 
-Raw data: [`bench/qd_v2_thanos.tsv`](bench/qd_v2_thanos.tsv).
+## Mac — Apple M1 Max (fork binary built by this README's macOS instructions)
+
+## mac-m1max — qd — `wall_s`
+
+Median of 3 repeats, seconds (`wall_s`). Spread = (max-min)/median.
+
+| problem | m | pristine | fork1 | fork8 |
+|---|---|---|---|---|
+| control1 | 21 | 0.230 ±4% | 0.230 | 0.230 |
+| gpp100 | 101 | 22.520 | 22.520 | 22.520 |
+| theta1 | 104 | 2.350 ±1% | 2.330 | 2.230 |
+| truss5 | 208 | 9.430 | 9.230 | 7.130 |
+| arch0 | 174 | 89.110 | 89.040 | 51.360 |
+| **total** | | **123.6** | **123.4** | **83.5** |
+
+**fork8 vs pristine: 1.48x**  (totals 123.6 s -> 83.5 s)
+
+### Integrity
+
+- all repeats `ok`; iteration count and objective identical across repeats and across configs for every problem
+
+### Peak RSS (MB, max over repeats)
+
+| problem | pristine | fork1 | fork8 |
+|---|---|---|---|
+| control1 | 8.5 | 8.5 | 8.5 |
+| gpp100 | 8.5 | 8.5 | 8.5 |
+| theta1 | 8.5 | 8.5 | 8.5 |
+| truss5 | 8.5 | 8.5 | 8.6 |
+| arch0 | 14.8 | 15.0 | 15.2 |
+
+
+On the Mac, `gpp100`'s iteration count is identical in every configuration (56), so the
+whole table is clean like-for-like there.
+
+### The `gpp100` trajectory, refined by the Mac data
+
+On thanos, the patch shifts `gpp100` from 63 to 49 iterations (same objective). On the Mac it
+shifts nothing — but *pristine upstream itself* takes 56 iterations there, not 63. So
+`gpp100`'s path is fragile to low-bit perturbations of any origin: platform, QD library
+version, or this patch. The honest statement is that on this problem, wall-time comparisons
+measure path length as much as speed on some platforms; per-iteration cost is the stable
+metric, and by that metric the fork is neutral on `gpp100` everywhere measured.
+
+Raw data: [`bench/qd_v2_thanos.tsv`](bench/qd_v2_thanos.tsv),
+[`bench/qd_v2_mac.tsv`](bench/qd_v2_mac.tsv).
