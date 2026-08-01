@@ -23,7 +23,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
   $Id: rsdpa_tool.cpp,v 1.2 2004/09/01 06:34:12 makoto Exp $
 -----------------------------------------*/
 
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-07-31: rGetUseTime is elapsed wall time (steady_clock), not process CPU time. See git log. */
 #include <sdpa_tool.h>
+#include <chrono>
 #include <sys/times.h>
 #include <sys/time.h>
 #include <time.h>
@@ -46,9 +48,12 @@ qd_real MMONE = -1.0;
 
 double Time::rGetUseTime()
 {
-  struct tms TIME;
-  times(&TIME);
-  return (double)TIME.tms_utime/(double)CLK_TCK; 
+  // Elapsed wall time, NOT process CPU time. times().tms_utime sums the CPU used by
+  // every worker thread, so it grows with the thread count even when the run speeds
+  // up -- which makes a real parallel speedup read as a regression. steady_clock is
+  // monotonic, so a clock adjustment cannot corrupt an interval.
+  const auto now = std::chrono::steady_clock::now().time_since_epoch();
+  return std::chrono::duration<double>(now).count();
 }
 
 void Time::rSetTimeVal(struct timeval& targetVal)
