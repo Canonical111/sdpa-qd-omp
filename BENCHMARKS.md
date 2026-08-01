@@ -68,6 +68,38 @@ the large F3-dominated `arch0` (1.54x). Why quad-double shifts one trajectory wh
 double-double shifts none (20/20 trajectory-neutral) is an open question, documented in the
 companion repository rather than hidden.
 
+## pi — i9-13900K, 24 physical cores (fork binary built per the README, fresh clone)
+
+## pi-i9-13900k — qd — `wall_s`
+
+Median of 3 repeats, seconds (`wall_s`). Spread = (max-min)/median.
+
+| problem | m | pristine | fork1 | fork8P | fork24 |
+|---|---|---|---|---|---|
+| control1 | 21 | 0.110 | 0.110 | 0.110 | 0.110 |
+| gpp100 | 101 | 19.640 | 19.640 | 19.640 | 19.640 |
+| theta1 | 104 | 1.800 | 1.800 | 1.710 | 1.710 |
+| truss5 | 208 | 6.890 | 6.820 | 4.930 | 4.840 |
+| arch0 | 174 | 84.590 | 84.530 | 49.790 | 47.800 |
+| **total** | | **113.0** | **112.9** | **76.2** | **74.1** |
+
+**fork24 vs pristine: 1.53x**  (totals 113.0 s -> 74.1 s)
+
+### Integrity
+
+- all repeats `ok`; iteration count and objective identical across repeats and across configs for every problem
+
+### Peak RSS (MB, max over repeats)
+
+| problem | pristine | fork1 | fork8P | fork24 |
+|---|---|---|---|---|
+| control1 | 2.4 | 2.7 | 2.7 | 2.7 |
+| gpp100 | 7.2 | 7.4 | 7.4 | 7.4 |
+| theta1 | 3.9 | 4.2 | 4.4 | 4.2 |
+| truss5 | 5.7 | 6.2 | 6.2 | 6.2 |
+| arch0 | 13.9 | 14.2 | 14.2 | 14.2 |
+
+
 ## Mac — Apple M1 Max (fork binary built by this README's macOS instructions)
 
 ## mac-m1max — qd — `wall_s`
@@ -103,14 +135,18 @@ Median of 3 repeats, seconds (`wall_s`). Spread = (max-min)/median.
 On the Mac, `gpp100`'s iteration count is identical in every configuration (56), so the
 whole table is clean like-for-like there.
 
-### The `gpp100` trajectory, refined by the Mac data
+### The `gpp100` trajectory, measured on three platforms
 
-On thanos, the patch shifts `gpp100` from 63 to 49 iterations (same objective). On the Mac it
-shifts nothing — but *pristine upstream itself* takes 56 iterations there, not 63. So
-`gpp100`'s path is fragile to low-bit perturbations of any origin: platform, QD library
-version, or this patch. The honest statement is that on this problem, wall-time comparisons
-measure path length as much as speed on some platforms; per-iteration cost is the stable
-metric, and by that metric the fork is neutral on `gpp100` everywhere measured.
+| | EPYC 7232P | i9-13900K | M1 Max |
+|---|---|---|---|
+| pristine upstream, iterations | 63 | 49 | 56 |
+| this fork, iterations | 49 | 49 | 56 |
 
-Raw data: [`bench/qd_v2_thanos.tsv`](bench/qd_v2_thanos.tsv),
-[`bench/qd_v2_mac.tsv`](bench/qd_v2_mac.tsv).
+*Pristine upstream by itself* takes three different paths on three microarchitectures — the
+problem is trajectory-fragile to low-bit differences of any origin (platform, QD library
+build, or this patch), and the one fork-induced shift (thanos) lands exactly on another
+platform's pristine value. Same objective everywhere. Consequence: on this problem,
+wall-time ratios measure path length as much as speed; per-iteration cost is the stable
+metric, and by it the fork is neutral on `gpp100` on every platform measured.
+
+Raw data: [`bench/qd_v2_thanos.tsv`](bench/qd_v2_thanos.tsv), [`bench/qd_v2_pi.tsv`](bench/qd_v2_pi.tsv), [`bench/qd_v2_mac.tsv`](bench/qd_v2_mac.tsv).
