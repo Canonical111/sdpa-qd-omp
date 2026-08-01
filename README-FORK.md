@@ -29,4 +29,41 @@ make -j$(nproc)
 nm sdpa_qd | grep -c GOMP     # the binary is static; ldd cannot verify OpenMP
 ```
 
+### macOS (Apple Silicon) — verified on an M1 Max
+
+Three traps, all with one-line causes. (1) **Homebrew's `qd` bottle cannot be used**: it is
+built with Apple clang against libc++, and linking with g++ fails on
+`operator<<(std::ostream&, qd_real const&)` — QD must be built from source with the same
+GCC. (2) The 2009 `config.guess` predates arm64. (3) A failed `make` re-untars SPOOLES and
+**clobbers any fix you made** — edit only after the first failure, and satisfy the
+`libspooles.a` target so it is not re-extracted.
+
+```bash
+brew install gcc autoconf automake
+GCC=$(ls $(brew --prefix gcc)/bin/gcc-[0-9]* | head -1)   # resolve the current version
+GXX=$(ls $(brew --prefix gcc)/bin/g++-[0-9]* | head -1)   # (brew install may have just upgraded it)
+# QD from source, with the SAME compiler as the solver
+curl -LO https://www.davidhbailey.com/dhbsoftware/qd-2.3.24.tar.gz
+tar xzf qd-2.3.24.tar.gz
+( cd qd-2.3.24 && ./configure CC="$GCC" CXX="$GXX" \
+    --prefix=$HOME/qd-gcc --enable-fortran=no && make -j8 && make install )
+
+# arm64-aware config.guess/config.sub
+cp "$(ls -d /opt/homebrew/share/automake-* | head -1)"/config.{guess,sub} .
+chmod u+w config.guess config.sub
+
+./configure CC="$GCC" CXX="$GXX" \
+            --with-qd-includedir=$HOME/qd-gcc/include --with-qd-libdir=$HOME/qd-gcc/lib \
+            CXXFLAGS='-O2 -funroll-all-loops -fopenmp' \
+            CFLAGS='-O2 -funroll-all-loops -fopenmp' LDFLAGS='-fopenmp'
+make -j8 || true   # first pass stops inside SPOOLES -- expected; the untar creates spooles/build
+M=spooles/build/Make.inc
+sed -i '' 's|^# CC = gcc|  CC = '$GCC'|' $M
+sed -i '' 's|^  CFLAGS += -O2 -funroll-all-loops|  CFLAGS += -O2 -funroll-all-loops -Wno-error=int-conversion -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types|' $M
+( cd spooles/build && find . -name '*.o' -delete && rm -f spooles.a && make global -f makefile )
+cp spooles/build/spooles.a spooles/build/libspooles.a   # satisfies the target; prevents re-untar
+make -j8
+nm sdpa_qd | grep -c GOMP       # non-zero when OpenMP is really in
+```
+
 License: GPL v2, unchanged (`COPYING`); original SDPA authors retain copyright.
