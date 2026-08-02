@@ -19,15 +19,175 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 ------------------------------------------------------------- */
 
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-02: robust long-decimal QD input conversion. See git log. */
+
 #define DIMACS_PRINT 0
 
 #include <sdpa_io.h>
 #include <vector>
 #include <algorithm>
-
-char mpbuffer[10240];
+#include <cctype>
+#include <climits>
+#include <cstdlib>
+#include <iostream>
+#include <sstream>
+#include <string>
 
 namespace sdpa {
+
+namespace {
+
+// QD's reader overflows on 309-digit mantissas. 128 digits are safely below
+// that limit and still provide about twice the significant digits QD retains.
+const size_t QD_INPUT_SIGNIFICANT_DIGITS = 128;
+const size_t QD_READER_MAX_MANTISSA_DIGITS = 308;
+
+int readNumericToken(FILE *fpData, std::string &token) {
+  token.clear();
+  int c;
+  do {
+    c = fgetc(fpData);
+    if (c == EOF) {
+      return EOF;
+    }
+  } while (!std::isdigit(static_cast<unsigned char>(c)) && c != '+' && c != '-' && c != '.');
+
+  do {
+    token.push_back(static_cast<char>(c));
+    c = fgetc(fpData);
+  } while (c != EOF && c != ',' && c != '}' && !std::isspace(static_cast<unsigned char>(c)));
+  if (c != EOF) {
+    ungetc(c, fpData);
+  }
+  return 1;
+}
+
+bool normalizeDecimalToken(const std::string &token, size_t maxDigits, std::string &normalized) {
+  size_t pos = 0;
+  bool negative = false;
+  if (pos < token.size() && (token[pos] == '+' || token[pos] == '-')) {
+    negative = token[pos] == '-';
+    ++pos;
+  }
+
+  std::string digits;
+  size_t digitsBeforePoint = 0;
+  bool sawPoint = false;
+  bool sawDigit = false;
+  while (pos < token.size() && token[pos] != 'e' && token[pos] != 'E') {
+    const char c = token[pos++];
+    if (c == '.') {
+      if (sawPoint) {
+        return false;
+      }
+      sawPoint = true;
+    } else if (std::isdigit(static_cast<unsigned char>(c))) {
+      digits.push_back(c);
+      sawDigit = true;
+      if (!sawPoint) {
+        ++digitsBeforePoint;
+      }
+    } else {
+      return false;
+    }
+  }
+  if (!sawDigit) {
+    return false;
+  }
+
+  long long explicitExponent = 0;
+  if (pos < token.size()) {
+    ++pos;
+    bool exponentNegative = false;
+    if (pos < token.size() && (token[pos] == '+' || token[pos] == '-')) {
+      exponentNegative = token[pos] == '-';
+      ++pos;
+    }
+    if (pos == token.size()) {
+      return false;
+    }
+    while (pos < token.size()) {
+      const char c = token[pos++];
+      if (!std::isdigit(static_cast<unsigned char>(c))) {
+        return false;
+      }
+      const int digit = c - '0';
+      if (explicitExponent > (LLONG_MAX - digit) / 10) {
+        return false;
+      }
+      explicitExponent = explicitExponent * 10 + digit;
+    }
+    if (exponentNegative) {
+      explicitExponent = -explicitExponent;
+    }
+  }
+
+  const size_t firstNonzero = digits.find_first_not_of('0');
+  if (firstNonzero == std::string::npos) {
+    normalized = "0";
+    return true;
+  }
+  if (digitsBeforePoint > static_cast<size_t>(LLONG_MAX) || firstNonzero > static_cast<size_t>(LLONG_MAX)) {
+    return false;
+  }
+  const long long pointOffset = static_cast<long long>(digitsBeforePoint) - static_cast<long long>(firstNonzero) - 1;
+  if ((pointOffset > 0 && explicitExponent > LLONG_MAX - pointOffset) ||
+      (pointOffset < 0 && explicitExponent < LLONG_MIN - pointOffset)) {
+    return false;
+  }
+  const long long adjustedExponent = explicitExponent + pointOffset;
+
+  const size_t count = std::min(maxDigits, digits.size() - firstNonzero);
+  const std::string significant = digits.substr(firstNonzero, count);
+  std::ostringstream converted;
+  if (negative) {
+    converted << '-';
+  }
+  converted << significant[0];
+  if (significant.size() > 1) {
+    converted << '.' << significant.substr(1);
+  }
+  converted << 'e' << adjustedExponent;
+  normalized = converted.str();
+  return true;
+}
+
+int readReal(FILE *fpData, qd_real &value) {
+  std::string token;
+  const int status = readNumericToken(fpData, token);
+  if (status == EOF) {
+    return EOF;
+  }
+  std::string normalized;
+  if (!normalizeDecimalToken(token, QD_INPUT_SIGNIFICANT_DIGITS, normalized)) {
+    std::cerr << "invalid numeric token in SDPA input: '" << token.substr(0, 80)
+              << (token.size() > 80 ? "..." : "") << "'" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+  size_t mantissaDigits = 0;
+  for (size_t i = 0; i < token.size() && token[i] != 'e' && token[i] != 'E'; ++i) {
+    mantissaDigits += std::isdigit(static_cast<unsigned char>(token[i])) ? 1 : 0;
+  }
+  // Preserve the original conversion path for ordinary inputs. Normalization
+  // is needed only when QD's reader would overflow on an overlong mantissa.
+  const char *parseToken = mantissaDigits > QD_READER_MAX_MANTISSA_DIGITS ? normalized.c_str() : token.c_str();
+  const int parseStatus = qd_real::read(parseToken, value);
+  if (parseStatus != 0 || !value.isfinite()) {
+    std::cerr << "SDPA input value is outside the QD range: '" << token.substr(0, 80)
+              << (token.size() > 80 ? "..." : "") << "'" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+  return 1;
+}
+
+void requireReal(FILE *fpData, qd_real &value) {
+  if (readReal(fpData, value) == EOF) {
+    std::cerr << "unexpected end of SDPA input while reading a numeric value" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+} // namespace
 
 // 2008/02/27  kazuhide nakata 
 #if 0  // not use
@@ -151,7 +311,7 @@ void IO::read(FILE* fpData,
 void IO::read(FILE* fpData, Vector& b)
 {
   for (int k=0; k<b.nDim; ++k) {
-    fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); b.ele[k] = mpbuffer;
+    requireReal(fpData,b.ele[k]);
   }
 }
 
@@ -167,7 +327,7 @@ void IO::read(FILE* fpData, DenseLinearSpace& xMat,
   // yVec is opposite sign
   for (int k=0; k<yVec.nDim; ++k) {
     qd_real tmp;
-    fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+    requireReal(fpData,tmp);
     yVec.ele[k] = -tmp;
     //     rMessage("yVec.ele[" << k << "] = " << tmp);
   }
@@ -189,13 +349,9 @@ void IO::read(FILE* fpData, DenseLinearSpace& xMat,
       if (fscanf(fpData,"%*[^0-9+-]%d",&j)<=0) {
 	break;
       }
-      if (fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer)<=0) {
-        break;
-      }
-      if (sscanf(mpbuffer, "%lf",&value.x[0])<=0) {
+      if (readReal(fpData,value)==EOF) {
 	break;
       }
-      value = mpbuffer;
       #if 0
       rMessage("target = " << target
 	       << ": l " << l
@@ -240,7 +396,7 @@ void IO::read(FILE* fpData, DenseLinearSpace& xMat,
       for (int i=0; i<size; ++i) {
 	for (int j=0; j<size; ++j) {
 	  qd_real tmp;
-         fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+          requireReal(fpData,tmp);
 	  if (i<=j && tmp!=0.0) {
 	    zMat.setElement_SDP(l,i,j,tmp);
 	  }
@@ -254,7 +410,7 @@ void IO::read(FILE* fpData, DenseLinearSpace& xMat,
     // for LP
     for (int j=0; j<LP_nBlock; ++j) {
       qd_real tmp;
-      fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+      requireReal(fpData,tmp);
       if (tmp!=0.0) {
 	zMat.setElement_LP(j,tmp);
       }
@@ -266,7 +422,7 @@ void IO::read(FILE* fpData, DenseLinearSpace& xMat,
       for (int i=0; i<size; ++i) {
 	for (int j=0; j<size; ++j) {
 	  qd_real tmp;
-         fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+          requireReal(fpData,tmp);
 	  if (i<=j && tmp!=0.0) {
 	    xMat.setElement_SDP(l,i,j,tmp);
 	  }
@@ -280,7 +436,7 @@ void IO::read(FILE* fpData, DenseLinearSpace& xMat,
     // for LP
     for (int j=0; j<LP_nBlock; ++j) {
       qd_real tmp;
-      fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+      requireReal(fpData,tmp);
       if (tmp!=0.0) {
 	xMat.setElement_LP(j,tmp);
       }
@@ -320,13 +476,9 @@ void IO::read(FILE* fpData,  InputData& inputData, int m,
       if (fscanf(fpData,"%*[^0-9+-]%d",&j)<=0) {
 	break;
       }
-      if (fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer)<=0) {
-        break;
-      }
-      if (sscanf(mpbuffer, "%lf",&value.x[0])<=0) {
+      if (readReal(fpData,value)==EOF) {
 	break;
       }
-      value = mpbuffer;
 #if 0
       rMessage("input k:" << k <<
 	       " l:" << l <<
@@ -372,7 +524,7 @@ void IO::read(FILE* fpData,  InputData& inputData, int m,
 		for (int i=0; i<size; ++i) {
 		  for (int j=0; j<size; ++j) {
 			qd_real tmp;
-                       fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+                        requireReal(fpData,tmp);
 			if (i<=j && tmp!=0.0) {
 			  inputData.C.setElement_SDP(l,i,j,-tmp);
 			}
@@ -383,7 +535,7 @@ void IO::read(FILE* fpData,  InputData& inputData, int m,
 	  } else if (blockType[l2] == 3) { // LP part
 		for (int j=0; j<blockStruct[l2]; ++j) {
 		  qd_real tmp;
-                 fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+                  requireReal(fpData,tmp);
 		  if (tmp!=0.0) {
 			inputData.C.setElement_LP(blockNumber[l2]+j,-tmp);
 		  }
@@ -403,7 +555,7 @@ void IO::read(FILE* fpData,  InputData& inputData, int m,
 		for (int i=0; i<size; ++i) {
 		  for (int j=0; j<size; ++j) {
 			qd_real tmp;
-                       fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+                        requireReal(fpData,tmp);
 			if (i<=j && tmp!=0.0) {
 			  inputData.A[k].setElement_SDP(l,i,j,tmp);
 			}
@@ -414,7 +566,7 @@ void IO::read(FILE* fpData,  InputData& inputData, int m,
 	  } else if (blockType[l2] == 3) { // LP part
 		for (int j=0; j<blockStruct[l2]; ++j) {
 		  qd_real tmp;
-                 fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+                  requireReal(fpData,tmp);
 		  if (tmp!=0.0) {
 			inputData.A[k].setElement_LP(blockNumber[l2]+j,tmp);
 		  }
@@ -531,14 +683,9 @@ void IO::setBlockStruct(FILE* fpData, InputData& inputData, int m,
       if (fscanf(fpData,"%*[^0-9+-]%d",&j)<=0) {
 	break;
       }
-      if (fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer)<=0) {
-        break;
-      }
-      if (sscanf(mpbuffer, "%lf",&value.x[0])<=0) {
+      if (readReal(fpData,value)==EOF) {
 	break;
       }
-      
-      value = mpbuffer;
 
       if (blockType[l-1] == 1){	// SDP part
         int l2 = blockNumber[l-1];
@@ -570,7 +717,7 @@ void IO::setBlockStruct(FILE* fpData, InputData& inputData, int m,
         for (int i=0; i<size; ++i) {
           for (int j=0; j<size; ++j) {
 	    qd_real tmp;
-            fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+            requireReal(fpData,tmp);
             if (i<=j && tmp!=0.0) {
               SDP_index[0].push_back(l);
             }
@@ -581,7 +728,7 @@ void IO::setBlockStruct(FILE* fpData, InputData& inputData, int m,
       } else if (blockType[l2] == 3) { // LP part
         for (int j=0; j<blockStruct[l2]; ++j) {
 	  qd_real tmp;
-          fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+          requireReal(fpData,tmp);
           if (tmp!=0.0) {
               LP_index[0].push_back(blockNumber[l2]+j);
           }
@@ -600,7 +747,7 @@ void IO::setBlockStruct(FILE* fpData, InputData& inputData, int m,
           for (int i=0; i<size; ++i) {
             for (int j=0; j<size; ++j) {
  	      qd_real tmp;
-              fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+              requireReal(fpData,tmp);
               if (i<=j && tmp!=0.0) {
                 SDP_index[k+1].push_back(l);
               }
@@ -611,7 +758,7 @@ void IO::setBlockStruct(FILE* fpData, InputData& inputData, int m,
         } else if (blockType[l2] == 3) { // LP part
           for (int j=0; j<blockStruct[l2]; ++j) {
 	    qd_real tmp;
-            fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+            requireReal(fpData,tmp);
             if (tmp!=0.0) {
               LP_index[k+1].push_back(blockNumber[l2]+j);
             }
@@ -737,13 +884,9 @@ void IO::setElement(FILE* fpData, InputData& inputData, int m,
       if (fscanf(fpData,"%*[^0-9+-]%d",&j)<=0) {
 	break;
       }
-      if (fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer)<=0) {
-        break;
-      }
-      if (sscanf(mpbuffer, "%lf",&value.x[0])<=0) {
+      if (readReal(fpData,value)==EOF) {
 	break;
       }
-      value = mpbuffer;
 #if 0
       rMessage("input k:" << k <<
 	       " l:" << l <<
@@ -789,7 +932,7 @@ void IO::setElement(FILE* fpData, InputData& inputData, int m,
 		for (int i=0; i<size; ++i) {
 		  for (int j=0; j<size; ++j) {
 	                qd_real tmp;
-                        fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+                        requireReal(fpData,tmp);
 			if (i<=j && tmp!=0.0) {
 			  inputData.C.setElement_SDP(l,i,j,-tmp);
 			}
@@ -800,7 +943,7 @@ void IO::setElement(FILE* fpData, InputData& inputData, int m,
 	  } else if (blockType[l2] == 3) { // LP part
 		for (int j=0; j<blockStruct[l2]; ++j) {
 	          qd_real tmp;
-                  fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+                  requireReal(fpData,tmp);
 		  if (tmp!=0.0) {
 			inputData.C.setElement_LP(blockNumber[l2]+j,-tmp);
 		  }
@@ -820,7 +963,7 @@ void IO::setElement(FILE* fpData, InputData& inputData, int m,
 		for (int i=0; i<size; ++i) {
 		  for (int j=0; j<size; ++j) {
 	                qd_real tmp;
-                        fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+                        requireReal(fpData,tmp);
 			if (i<=j && tmp!=0.0) {
 			  inputData.A[k].setElement_SDP(l,i,j,tmp);
 			}
@@ -831,7 +974,7 @@ void IO::setElement(FILE* fpData, InputData& inputData, int m,
 	  } else if (blockType[l2] == 3) { // LP part
 		for (int j=0; j<blockStruct[l2]; ++j) {
 	          qd_real tmp;
-                  fscanf(fpData,"%*[^0-9+-]%[^,} \t\n]",mpbuffer); tmp = mpbuffer;
+                  requireReal(fpData,tmp);
 		  if (tmp!=0.0) {
 			inputData.A[k].setElement_LP(blockNumber[l2]+j,tmp);
 		  }
