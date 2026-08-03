@@ -64,6 +64,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-04: null-terminate the Mlaname buffer; block sizes were read from uninitialised stack. See git log. */
 #include <mblas_qd.h>
 #include <mlapack_qd.h>
 #include <string.h>
@@ -225,7 +226,13 @@ iMlaenv_qd(mpackint ispec, const char *name, const char *opts, mpackint n1, mpac
     iret = -1;
 
     char Mlaname[MLANAMESIZE + 1];
-//buggy
+    // strncpy pads with NUL only when the source is SHORTER than n. Every
+    // 6-character LAPACK name ("Rpotrf", "Rsytrd", ...) fills the buffer
+    // exactly, leaving Mlaname[MLANAMESIZE] uninitialised -- and the strcmp
+    // calls below read it. The block size then depended on stack garbage:
+    // 64 when it happened to be NUL, 1 (unblocked) otherwise. mplapack's
+    // iMlaenv does this memset; mpack's did not.
+    memset(Mlaname, '\0', sizeof(Mlaname));
     strncpy(Mlaname, name, MLANAMESIZE);
     for (i = 0; i < MLANAMESIZE; i++) {
 	up = tolower(Mlaname[i]);

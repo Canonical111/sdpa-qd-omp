@@ -31,3 +31,6 @@ configure
 depcomp
 install-sh
 missing
+
+# macOS duplicate copies of the built binary ("sdpa_qd 2", "sdpa_qd 3", ...)
+sdpa_qd [0-9]*
