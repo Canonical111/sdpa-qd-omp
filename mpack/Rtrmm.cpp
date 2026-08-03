@@ -73,6 +73,7 @@ non-unit, upper or lower triangular matrix and op(A) is one  of
  op(A) = A  or op(A) = A'.
 */
 
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-04: added zero-skip to the alpha*A'*B dot-product branches (netlib dtrmm has no such skip; sdpa only ever passes a triangular B here). See git log. */
 #include <mblas_qd.h>
 
 void
@@ -175,7 +176,9 @@ Rtrmm(const char *side, const char *uplo, const char *transa, const char *diag,
 			if (nounit)
 			    temp = temp * A[i + i * lda];
 			for (mpackint k = 0; k < i; k++) {
-			    temp = temp + A[k + i * lda] * B[k + j * ldb];
+			    if (B[k + j * ldb] != Zero) {
+				temp = temp + A[k + i * lda] * B[k + j * ldb];
+			    }
 			}
 			B[i + j * ldb] = alpha * temp;
 		    }
@@ -187,7 +190,9 @@ Rtrmm(const char *side, const char *uplo, const char *transa, const char *diag,
 			if (nounit)
 			    temp = temp * A[i + i * lda];
 			for (mpackint k = i + 1; k < m; k++) {
-			    temp = temp + A[k + i * lda] * B[k + j * ldb];
+			    if (B[k + j * ldb] != Zero) {
+				temp = temp + A[k + i * lda] * B[k + j * ldb];
+			    }
 			}
 			B[i + j * ldb] = alpha * temp;
 		    }

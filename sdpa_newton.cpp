@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 ------------------------------------------------------------- */
 
 /* MODIFIED from upstream (GPLv2 2a notice), 2026-07-31: Schur-complement (bMat) construction threaded. See git log. */
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-04: rename rgemm_owns_block -> prefer_serial_block; remove copied DD timings and the claim that qd's Rgemm threads. See git log. */
 #include <sdpa_newton.h>
 #include <sdpa_parts.h>
 #include <vector>
@@ -1111,8 +1112,19 @@ void Newton::compute_bMat_dense_SDP(InputData &inputData, Solutions &currentPt, 
                 break;
             }
         }
-        // If the block has any F1/F2 constraint AND its setup gemm is big enough for
-        // Rgemm to thread well, leave k1 serial and let Rgemm own the parallelism.
+        // Leave k1 serial on blocks where threading it measurably loses.
+        //
+        // NOTE (2026-08-04): the name below and this rule were inherited from the dd
+        // fork, where Rgemm IS threaded. In THIS fork mpack/Rgemm.cpp has no OpenMP at
+        // all, so nothing "owns" the parallelism here -- the flag simply means "this
+        // block is better left serial than k1-threaded". Measured on thanos, 8 threads,
+        // stock gate vs gate forced off: gpp124-1 95.57 vs 95.65 s, theta1 8.17 vs 8.17,
+        // truss5 25.71 vs 25.71, theta3 1771.92 vs 1767.81 -- identical iterations and
+        // objectives throughout. An instrumented build confirms the gate does flip `par`
+        // from 0 to 1; the runtime does not move because gpp124-1's bMat cost sits in a
+        // few F1 constraints and schedule(dynamic,1) cannot split one constraint's work.
+        // So the gate is currently INERT in qd. Do not "fix" it either way until a
+        // threaded Rgemm exists here; then re-derive it with qd measurements.
         // Threading k1 there makes each blockDim^3 gemm serial inside a thread and gains
         // nothing -- measured 1.35x SLOWER than upstream on gpp124-1 (blockDim 124).
         // The test is on PRESENCE, not count: a single F1 constraint can dominate the
@@ -1132,18 +1144,19 @@ void Newton::compute_bMat_dense_SDP(InputData &inputData, Solutions &currentPt, 
         // rule of four tried that got both ends right, not because it is derived:
         //   theta3    1106 constraints over a 150 block (7.4x) -- wants k1 threading
         //   gpp124-1   125 constraints over a 124 block (1.0x) -- wants Rgemm
-        // Measured over 4 runs each, both effects consistent and outside run-to-run noise:
-        //   gpp124-1  upstream ~0.542  k1-threaded ~0.706  Rgemm-owned ~0.448
-        //   theta3    upstream ~12.6   k1-threaded ~12.2   Rgemm-owned ~13.9
+        // The per-configuration timings that used to appear here were DD measurements
+        // copied verbatim into this file: this fork's benchmark corpus has never
+        // contained gpp124-1, and the values are ~25x too fast for quad-double. They
+        // have been removed rather than left to be mistaken for qd evidence.
         // Without (b) theta3 would be handed to Rgemm and lose the k1 parallelism it has in
         // abundance (1.18x slower than upstream); without (a) the control* family
         // (blockDim 25-80) would be handed blocks Rgemm cannot thread, forfeiting ~3x.
         // Do not re-derive this from a constraint-type count without new benchmarks.
         const bool enough_k1_work =
             (double)nConstraint >= 2.0 * (double)xMat.nRow;
-        const bool rgemm_owns_block = anyF12 && (setup_gemm >= SDPA_OMP_RGEMM_OWNS_BLOCK) &&
+        const bool prefer_serial_block = anyF12 && (setup_gemm >= SDPA_OMP_RGEMM_OWNS_BLOCK) &&
                                       !enough_k1_work;
-        const bool par = injective && !rgemm_owns_block && nConstraint >= SDPA_OMP_MIN_CONSTRAINTS &&
+        const bool par = injective && !prefer_serial_block && nConstraint >= SDPA_OMP_MIN_CONSTRAINTS &&
                          (double)nConstraint * (double)nConstraint * (double)xMat.nRow >= SDPA_OMP_MIN_BMAT_WORK;
 
         // Cap the team by the work actually available. There are exactly nConstraint k1
