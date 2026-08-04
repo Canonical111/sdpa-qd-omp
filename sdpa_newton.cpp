@@ -47,18 +47,23 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #ifndef SDPA_OMP_MAX_PRIV_MB
 #define SDPA_OMP_MAX_PRIV_MB 256.0
 #endif
-// Bytes actually occupied by one scalar. For qd_real/qd_real the mantissa is stored inline,
-// so sizeof() is exact. For mpf_class it is NOT: the object is a 24-byte descriptor whose
-// limbs are allocated separately, so sizeof() undercounts by ~3x at 256-bit precision and
-// the memory cap above would admit several times its nominal budget.
+// Bytes actually occupied by one scalar. qd_real stores its four limbs inline, so sizeof()
+// is exact for this backend.
 static inline double sdpa_omp_bytes_per_elem() {
     return (double)sizeof(qd_real);
 }
 // Choosing the parallel axis. For an F1/F2-dominated block the per-constraint setup is a
-// blockDim^3 dense gemm, which Rgemm already threads well on its own; threading k1 instead
-// makes each of those gemms serial and gains nothing. Below this gemm size Rgemm cannot
-// parallelise effectively (blocks of 25-80 in the control* family) and threading k1 wins
-// several-fold. Measured crossover on an i9-13900K lies between 80^3 and 100^3.
+// blockDim^3 dense gemm. In the dd fork that gemm is threaded, so leaving k1 serial there
+// hands the work to Rgemm; THIS backend has no threaded gemm at all (mpack/Rgemm.cpp
+// contains no OpenMP), so the threshold below cannot be justified that way and the name
+// PREFER_SERIAL_BLOCK is the accurate description of what it does.
+//
+// Its measured effect here is approximately neutral -- stock versus forced off differs by
+// 0.1% or less on gpp124-1, theta1, truss5 and theta3, with identical iteration counts and
+// objectives (see the fuller note at the decision site). The value is retained only to
+// preserve current behaviour, NOT because it has been derived or validated on quad-double.
+// Re-derive it once mpack has a threaded gemm; the 80^3-100^3 crossover quoted in the dd
+// fork was measured on double-double and does not transfer.
 #ifndef SDPA_OMP_PREFER_SERIAL_BLOCK
 #define SDPA_OMP_PREFER_SERIAL_BLOCK 700000.0
 #endif

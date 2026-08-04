@@ -78,11 +78,34 @@ jobs:
       - name: 1-thread and 8-thread results are identical (determinism guarantee)
         if: matrix.openmp == 'yes'
         run: |
+          set -euo pipefail
           OMP_NUM_THREADS=1 ./sdpa_qd -ds example1.dat-s -o t1.out -p param.sdpa >/dev/null
           OMP_NUM_THREADS=8 ./sdpa_qd -ds example1.dat-s -o t8.out -p param.sdpa >/dev/null
-          # Select the solution-bearing lines rather than trying to exclude every
-          # timing format -- the timer block has several shapes and an exclusion
-          # filter silently rots. xVec/xMat/yMat are numeric-only lines.
-          sel() { grep -E 'objValPrimal|objValDual|phase\.value|Iteration =|relative gap|feas\.error|^\{' "$1"; }
-          diff <(sel t1.out) <(sel t8.out) || { echo "FAIL: 1 vs 8 threads differ" >&2; exit 1; }
-          test -s <(sel t1.out) || { echo "FAIL: selector matched nothing" >&2; exit 1; }
+          # Select the solution-bearing content rather than excluding timing lines: an
+          # exclusion list has to know every timer format the solver can print and rots
+          # silently when one is added. Two parts: the scalar convergence fields, and the
+          # WHOLE final solution section from "xVec =" onward -- matrix continuation rows
+          # are indented, so a "^{" pattern would compare only each block's first row.
+          # The timing block follows the matrices, hence the time= drop.
+          sel() {
+            grep -E 'objValPrimal|objValDual|phase\.value|Iteration =|relative gap|feas\.error' "$1" || true
+            awk '/^xVec *=/{f=1} f && !/time *=/' "$1"
+          }
+          # Write to regular files: `test -s <(...)` is always false, because process
+          # substitution exposes a pipe and a pipe reports size zero.
+          sel t1.out > t1.selected
+          sel t8.out > t8.selected
+          test -s t1.selected || { echo "FAIL: selector matched nothing" >&2; exit 1; }
+          grep -q '^  *{' t1.selected || { echo "FAIL: no indented matrix rows captured" >&2; exit 1; }
+          diff -u t1.selected t8.selected || { echo "FAIL: 1 vs 8 threads differ" >&2; exit 1; }
+          # Positive control: perturbing an indented continuation row MUST be detected.
+          # (awk, not `sed '0,/re/'` -- that range form is a GNU extension and is a silent
+          # no-op under BSD sed, which would make this control vacuous on some runners.)
+          awk 'BEGIN{done=0} /^[[:space:]]+\{/ && !done {print "  {9.99e+99"; done=1; next} {print}' \
+            t1.selected > t1.mutated
+          if diff -q t1.selected t1.mutated >/dev/null; then
+            echo "FAIL: positive control did not mutate anything -- the check is vacuous" >&2; exit 1
+          fi
+          if diff -q t1.mutated t8.selected >/dev/null; then
+            echo "FAIL: comparison cannot detect a changed matrix row" >&2; exit 1
+          fi
