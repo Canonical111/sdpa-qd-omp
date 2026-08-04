@@ -1885,11 +1885,7 @@ bool Lal::multiply(DenseLinearSpace& retMat,
     rError("multiply:: different memory size");
   }
   for (int l=0; l<aMat.LP_nBlock; ++l) {
-    if (&scalar == NULL) {
-      retMat.LP_block[l] = aMat.LP_block[l];
-    } else{
-      retMat.LP_block[l] = aMat.LP_block[l] * (*scalar);
-    }
+    retMat.LP_block[l] = aMat.LP_block[l] * (*scalar);
   }
 
   return total_judge;
