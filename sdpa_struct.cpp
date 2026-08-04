@@ -408,7 +408,7 @@ void SparseMatrix::display(FILE* fpout)
       int i        = row_index[index];
       int j        = column_index[index];
       qd_real value = sp_ele[index];
-      fprintf(fpout,"val[%d,%d] = "P_FORMAT"\n", i,j,value.x[0]);
+      fprintf(fpout,"val[%d,%d] = " P_FORMAT "\n", i,j,value.x[0]);
     }
     fprintf(fpout,"}\n");
     break;

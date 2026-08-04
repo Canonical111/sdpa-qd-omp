@@ -73,7 +73,7 @@ Rorgql(mpackint m, mpackint n, mpackint k, qd_real * A, mpackint lda, qd_real * 
 {
     qd_real Zero = 0.0, One = 1.0;
     mpackint nbmin, nx, iws, nb, lwkopt, lquery, kk;
-    mpackint i, j, l, iinfo, ldwork, ib;
+    mpackint i, j, l, iinfo, ldwork = 0, ib;
 
 //Test the input arguments
     *info = 0;

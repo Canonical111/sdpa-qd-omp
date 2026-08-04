@@ -72,7 +72,7 @@ Rsytrd(const char *uplo, mpackint n, qd_real * A, mpackint lda, qd_real * d,
     qd_real * e, qd_real * tau, qd_real * work, mpackint lwork, mpackint *info)
 {
     mpackint upper, lquery, nb, lwkopt, nx, iws;
-    mpackint ldwork, nbmin, kk;
+    mpackint ldwork = 0, nbmin, kk;
     mpackint i, j;
     mpackint iinfo;
     qd_real One = 1.0;

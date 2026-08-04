@@ -34,10 +34,15 @@ endif
 
 if SYSTEM_MPACK
 sdpa_qd_LDADD = $(pthread_lib) -L$(SPOOLES_LIBDIR) -lspooles -L$(QD_LIBDIR) -lqd $(OPENMPLIB) -L$(MPACK_LIBDIR) -lmlapack_qd -lmblas_qd
-sdpa_qd_CXXFLAGS= $(pthread_cflags) -I$(SPOOLES_INCLUDEDIR) -DUseMETIS=0 -I$(QD_INCLUDEDIR) $(OPENMPFLAGS) -I$(MPACK_INCLUDEDIR)
+# 2026-08-04: -D___MPACK_BUILD_WITH_QD___ added. mpack/Mutils.cpp guards every body
+# with #if defined ___MPACK_BUILD_WITH_{GMP,QD,DD}___ and none was ever defined here,
+# so eight non-void functions compiled to empty stubs (4 bytes each, no return) --
+# undefined behaviour, and mpf_approx_pow calls two of the others internally. They
+# have no caller in the solver today, which is the only reason it has not bitten.
+sdpa_qd_CXXFLAGS= $(pthread_cflags) -I$(SPOOLES_INCLUDEDIR) -DUseMETIS=0 -D___MPACK_BUILD_WITH_QD___ -I$(QD_INCLUDEDIR) $(OPENMPFLAGS) -I$(MPACK_INCLUDEDIR)
 else
 sdpa_qd_LDADD = $(pthread_lib) -L$(SPOOLES_LIBDIR) -lspooles -L$(QD_LIBDIR) -lqd $(OPENMPLIB)
-sdpa_qd_CXXFLAGS= $(pthread_cflags) -I$(SPOOLES_INCLUDEDIR) -DUseMETIS=0 -I$(QD_INCLUDEDIR) $(OPENMPFLAGS) -I./mpack
+sdpa_qd_CXXFLAGS= $(pthread_cflags) -I$(SPOOLES_INCLUDEDIR) -DUseMETIS=0 -D___MPACK_BUILD_WITH_QD___ -I$(QD_INCLUDEDIR) $(OPENMPFLAGS) -I./mpack
 endif
 
 if BUILD_SPOOLES
