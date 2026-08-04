@@ -59,8 +59,8 @@ static inline double sdpa_omp_bytes_per_elem() {
 // makes each of those gemms serial and gains nothing. Below this gemm size Rgemm cannot
 // parallelise effectively (blocks of 25-80 in the control* family) and threading k1 wins
 // several-fold. Measured crossover on an i9-13900K lies between 80^3 and 100^3.
-#ifndef SDPA_OMP_RGEMM_OWNS_BLOCK
-#define SDPA_OMP_RGEMM_OWNS_BLOCK 700000.0
+#ifndef SDPA_OMP_PREFER_SERIAL_BLOCK
+#define SDPA_OMP_PREFER_SERIAL_BLOCK 700000.0
 #endif
 
 namespace sdpa {
@@ -1125,36 +1125,31 @@ void Newton::compute_bMat_dense_SDP(InputData &inputData, Solutions &currentPt, 
         // few F1 constraints and schedule(dynamic,1) cannot split one constraint's work.
         // So the gate is currently INERT in qd. Do not "fix" it either way until a
         // threaded Rgemm exists here; then re-derive it with qd measurements.
-        // Threading k1 there makes each blockDim^3 gemm serial inside a thread and gains
-        // nothing -- measured 1.35x SLOWER than upstream on gpp124-1 (blockDim 124).
-        // The test is on PRESENCE, not count: a single F1 constraint can dominate the
-        // block's cost, so a count-based majority test misses it (gpp124-1 has few F1
-        // constraints but they carry ~97% of the bMat time). Blocks with no F1/F2 at all
-        // (arch0, truss5) have no setup gemm and keep their large k1-threading win.
+        // Threading k1 on such a block makes each blockDim^3 gemm serial inside a
+        // thread; on this backend that is not obviously worse or better (see below).
         const double setup_gemm =
             (double)xMat.nRow * (double)xMat.nRow * (double)xMat.nRow;
-        // Let Rgemm own the block, rather than threading k1, under two conditions:
-        //   (a) a single setup gemm is big enough for Rgemm to thread well at all, and
-        //   (b) there is NOT abundant k1 work relative to the block dimension.
-        //
-        // (b) is an EMPIRICALLY CALIBRATED PROXY, not a cost model. It compares constraint
-        // count against block dimension (nConstraint >= 2*blockDim) and nothing else -- it
+        // Condition (b): is there abundant k1 work relative to the block dimension?
+        // This compares constraint count against block dimension and nothing else; it
         // does not total the setup gemms and weigh them against the k1 x k2 pair work,
-        // which is what a real cost comparison would do. It is kept because it is the only
-        // rule of four tried that got both ends right, not because it is derived:
-        //   theta3    1106 constraints over a 150 block (7.4x) -- wants k1 threading
-        //   gpp124-1   125 constraints over a 124 block (1.0x) -- wants Rgemm
-        // The per-configuration timings that used to appear here were DD measurements
-        // copied verbatim into this file: this fork's benchmark corpus has never
-        // contained gpp124-1, and the values are ~25x too fast for quad-double. They
-        // have been removed rather than left to be mistaken for qd evidence.
-        // Without (b) theta3 would be handed to Rgemm and lose the k1 parallelism it has in
-        // abundance (1.18x slower than upstream); without (a) the control* family
-        // (blockDim 25-80) would be handed blocks Rgemm cannot thread, forfeiting ~3x.
-        // Do not re-derive this from a constraint-type count without new benchmarks.
+        // which is what a real cost model would do.
+        //
+        // MEASURED ON THIS BACKEND (thanos, 8 threads, pinned, median of 3), stock gate
+        // versus the gate forced off, i.e. k1 threading allowed everywhere:
+        //   gpp124-1  95.57 vs 95.65 s      theta1  8.17 vs 8.17 s
+        //   truss5    25.71 vs 25.71 s      theta3  1771.92 vs 1767.81 s
+        // Identical iteration counts and objectives throughout. An instrumented build
+        // confirms the gate really does flip `par` from 0 to 1 on gpp124-1; the wall
+        // time does not move because that problem's bMat cost sits in a few F1
+        // constraints and schedule(dynamic,1) cannot split one constraint's work.
+        //
+        // So on qd this gate is currently INERT. It is retained unchanged only because
+        // changing it is equally unmeasurable; it is not evidence that the rule is right.
+        // Re-derive it with fresh qd measurements once mpack has a threaded Rgemm --
+        // until then there is no parallelism for any block to "own".
         const bool enough_k1_work =
             (double)nConstraint >= 2.0 * (double)xMat.nRow;
-        const bool prefer_serial_block = anyF12 && (setup_gemm >= SDPA_OMP_RGEMM_OWNS_BLOCK) &&
+        const bool prefer_serial_block = anyF12 && (setup_gemm >= SDPA_OMP_PREFER_SERIAL_BLOCK) &&
                                       !enough_k1_work;
         const bool par = injective && !prefer_serial_block && nConstraint >= SDPA_OMP_MIN_CONSTRAINTS &&
                          (double)nConstraint * (double)nConstraint * (double)xMat.nRow >= SDPA_OMP_MIN_BMAT_WORK;
