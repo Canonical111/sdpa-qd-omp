@@ -57,7 +57,8 @@ am__sdpa_qd_SOURCES_DIST = sdpa_chordal.cpp sdpa_dataset.cpp \
 	sdpa_right.h sdpa_struct.h sdpa_tool.h mpack/Rdot.cpp \
 	mpack/Rtrsm.cpp mpack/Rsyrk.cpp mpack/Raxpy.cpp \
 	mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp \
-	mpack/mpack_omp_tuning.h mpack/Rtrmm.cpp mpack/Rtrsv.cpp \
+	mpack/mpack_omp_tuning.h mpack/Rtrsm_omp.cpp \
+	mpack/Rtrmm_omp.cpp mpack/Rtrmm.cpp mpack/Rtrsv.cpp \
 	mpack/iMlaenv.cpp mpack/Rlamch.cpp mpack/Rlascl.cpp \
 	mpack/Rsytrd.cpp mpack/Rsterf.cpp mpack/Rorgtr.cpp \
 	mpack/Rlatrd.cpp mpack/Rsyr2k.cpp mpack/Rsytd2.cpp \
@@ -90,6 +91,8 @@ am__sdpa_qd_SOURCES_DIST = sdpa_chordal.cpp sdpa_dataset.cpp \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Raxpy.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rgemm.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rgemm_NN_omp.$(OBJEXT) \
+@SYSTEM_MPACK_FALSE@	sdpa_qd-Rtrsm_omp.$(OBJEXT) \
+@SYSTEM_MPACK_FALSE@	sdpa_qd-Rtrmm_omp.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rtrmm.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rtrsv.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-iMlaenv.$(OBJEXT) \
@@ -308,6 +311,7 @@ top_srcdir = @top_srcdir@
 @SYSTEM_MPACK_FALSE@sdpa_parts.h sdpa_right.h sdpa_struct.h sdpa_tool.h \
 @SYSTEM_MPACK_FALSE@mpack/Rdot.cpp  mpack/Rtrsm.cpp mpack/Rsyrk.cpp mpack/Raxpy.cpp \
 @SYSTEM_MPACK_FALSE@mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp mpack/mpack_omp_tuning.h \
+@SYSTEM_MPACK_FALSE@mpack/Rtrsm_omp.cpp mpack/Rtrmm_omp.cpp \
 @SYSTEM_MPACK_FALSE@mpack/Rtrmm.cpp mpack/Rtrsv.cpp mpack/iMlaenv.cpp\
 @SYSTEM_MPACK_FALSE@mpack/Rlamch.cpp mpack/Rlascl.cpp mpack/Rsytrd.cpp mpack/Rsterf.cpp\
 @SYSTEM_MPACK_FALSE@mpack/Rorgtr.cpp mpack/Rlatrd.cpp mpack/Rsyr2k.cpp mpack/Rsytd2.cpp \
@@ -330,8 +334,8 @@ top_srcdir = @top_srcdir@
 @ENABLE_SHARED_FALSE@sdpa_qd_LDFLAGS = -static
 @SYSTEM_MPACK_FALSE@sdpa_qd_LDADD = $(pthread_lib) -L$(SPOOLES_LIBDIR) -lspooles -L$(QD_LIBDIR) -lqd $(OPENMPLIB)
 @SYSTEM_MPACK_TRUE@sdpa_qd_LDADD = $(pthread_lib) -L$(SPOOLES_LIBDIR) -lspooles -L$(QD_LIBDIR) -lqd $(OPENMPLIB) -L$(MPACK_LIBDIR) -lmlapack_qd -lmblas_qd
-@SYSTEM_MPACK_FALSE@sdpa_qd_CXXFLAGS = $(pthread_cflags) -I$(SPOOLES_INCLUDEDIR) -DUseMETIS=0 -I$(QD_INCLUDEDIR) $(OPENMPFLAGS) -I./mpack
-@SYSTEM_MPACK_TRUE@sdpa_qd_CXXFLAGS = $(pthread_cflags) -I$(SPOOLES_INCLUDEDIR) -DUseMETIS=0 -I$(QD_INCLUDEDIR) $(OPENMPFLAGS) -I$(MPACK_INCLUDEDIR)
+@SYSTEM_MPACK_FALSE@sdpa_qd_CXXFLAGS = $(pthread_cflags) -I$(SPOOLES_INCLUDEDIR) -DUseMETIS=0 -D___MPACK_BUILD_WITH_QD___ -I$(QD_INCLUDEDIR) $(OPENMPFLAGS) -I./mpack
+@SYSTEM_MPACK_TRUE@sdpa_qd_CXXFLAGS = $(pthread_cflags) -I$(SPOOLES_INCLUDEDIR) -DUseMETIS=0 -D___MPACK_BUILD_WITH_QD___ -I$(QD_INCLUDEDIR) $(OPENMPFLAGS) -I$(MPACK_INCLUDEDIR)
 @BUILD_SPOOLES_TRUE@SUBDIRS = spooles
 all: all-recursive
 
@@ -450,8 +454,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rsytd2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rsytrd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rtrmm.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rtrmm_omp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rtrmv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rtrsm.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rtrsm_omp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rtrsv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-iMlaenv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-sdpa_chordal.Po@am__quote@
@@ -702,6 +708,34 @@ sdpa_qd-Rgemm_NN_omp.obj: mpack/Rgemm_NN_omp.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mpack/Rgemm_NN_omp.cpp' object='sdpa_qd-Rgemm_NN_omp.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -c -o sdpa_qd-Rgemm_NN_omp.obj `if test -f 'mpack/Rgemm_NN_omp.cpp'; then $(CYGPATH_W) 'mpack/Rgemm_NN_omp.cpp'; else $(CYGPATH_W) '$(srcdir)/mpack/Rgemm_NN_omp.cpp'; fi`
+
+sdpa_qd-Rtrsm_omp.o: mpack/Rtrsm_omp.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -MT sdpa_qd-Rtrsm_omp.o -MD -MP -MF $(DEPDIR)/sdpa_qd-Rtrsm_omp.Tpo -c -o sdpa_qd-Rtrsm_omp.o `test -f 'mpack/Rtrsm_omp.cpp' || echo '$(srcdir)/'`mpack/Rtrsm_omp.cpp
+@am__fastdepCXX_TRUE@	mv -f $(DEPDIR)/sdpa_qd-Rtrsm_omp.Tpo $(DEPDIR)/sdpa_qd-Rtrsm_omp.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mpack/Rtrsm_omp.cpp' object='sdpa_qd-Rtrsm_omp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -c -o sdpa_qd-Rtrsm_omp.o `test -f 'mpack/Rtrsm_omp.cpp' || echo '$(srcdir)/'`mpack/Rtrsm_omp.cpp
+
+sdpa_qd-Rtrsm_omp.obj: mpack/Rtrsm_omp.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -MT sdpa_qd-Rtrsm_omp.obj -MD -MP -MF $(DEPDIR)/sdpa_qd-Rtrsm_omp.Tpo -c -o sdpa_qd-Rtrsm_omp.obj `if test -f 'mpack/Rtrsm_omp.cpp'; then $(CYGPATH_W) 'mpack/Rtrsm_omp.cpp'; else $(CYGPATH_W) '$(srcdir)/mpack/Rtrsm_omp.cpp'; fi`
+@am__fastdepCXX_TRUE@	mv -f $(DEPDIR)/sdpa_qd-Rtrsm_omp.Tpo $(DEPDIR)/sdpa_qd-Rtrsm_omp.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mpack/Rtrsm_omp.cpp' object='sdpa_qd-Rtrsm_omp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -c -o sdpa_qd-Rtrsm_omp.obj `if test -f 'mpack/Rtrsm_omp.cpp'; then $(CYGPATH_W) 'mpack/Rtrsm_omp.cpp'; else $(CYGPATH_W) '$(srcdir)/mpack/Rtrsm_omp.cpp'; fi`
+
+sdpa_qd-Rtrmm_omp.o: mpack/Rtrmm_omp.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -MT sdpa_qd-Rtrmm_omp.o -MD -MP -MF $(DEPDIR)/sdpa_qd-Rtrmm_omp.Tpo -c -o sdpa_qd-Rtrmm_omp.o `test -f 'mpack/Rtrmm_omp.cpp' || echo '$(srcdir)/'`mpack/Rtrmm_omp.cpp
+@am__fastdepCXX_TRUE@	mv -f $(DEPDIR)/sdpa_qd-Rtrmm_omp.Tpo $(DEPDIR)/sdpa_qd-Rtrmm_omp.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mpack/Rtrmm_omp.cpp' object='sdpa_qd-Rtrmm_omp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -c -o sdpa_qd-Rtrmm_omp.o `test -f 'mpack/Rtrmm_omp.cpp' || echo '$(srcdir)/'`mpack/Rtrmm_omp.cpp
+
+sdpa_qd-Rtrmm_omp.obj: mpack/Rtrmm_omp.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -MT sdpa_qd-Rtrmm_omp.obj -MD -MP -MF $(DEPDIR)/sdpa_qd-Rtrmm_omp.Tpo -c -o sdpa_qd-Rtrmm_omp.obj `if test -f 'mpack/Rtrmm_omp.cpp'; then $(CYGPATH_W) 'mpack/Rtrmm_omp.cpp'; else $(CYGPATH_W) '$(srcdir)/mpack/Rtrmm_omp.cpp'; fi`
+@am__fastdepCXX_TRUE@	mv -f $(DEPDIR)/sdpa_qd-Rtrmm_omp.Tpo $(DEPDIR)/sdpa_qd-Rtrmm_omp.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mpack/Rtrmm_omp.cpp' object='sdpa_qd-Rtrmm_omp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -c -o sdpa_qd-Rtrmm_omp.obj `if test -f 'mpack/Rtrmm_omp.cpp'; then $(CYGPATH_W) 'mpack/Rtrmm_omp.cpp'; else $(CYGPATH_W) '$(srcdir)/mpack/Rtrmm_omp.cpp'; fi`
 
 sdpa_qd-Rtrmm.o: mpack/Rtrmm.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -MT sdpa_qd-Rtrmm.o -MD -MP -MF $(DEPDIR)/sdpa_qd-Rtrmm.Tpo -c -o sdpa_qd-Rtrmm.o `test -f 'mpack/Rtrmm.cpp' || echo '$(srcdir)/'`mpack/Rtrmm.cpp

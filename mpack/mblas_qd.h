@@ -81,6 +81,31 @@ void Rtrmm(const char *side, const char *uplo, const char *transa,
 void Rtrsm(const char *side, const char *uplo, const char *transa,
     const char *diag, mpackint m, mpackint n, qd_real alpha, qd_real * A,
     mpackint lda, qd_real * B, mpackint ldb);
+/* 2026-08-05: the two column-parallel Left-side triangular kernels ("B3", ported from
+   the dd fork's bcb7801).  These are NOT drop-in replacements for Rtrmm/Rtrsm at every
+   call site, by policy: they exist so that the Cholesky-inverse phase can be threaded
+   without also threading Rtrsm inside Rpotrf or Rtrmm inside Rlarfb.  Each parallelises
+   only the case it implements and delegates every other case, and every sub-threshold
+   call, to the serial kernel in mpack/Rtrsm.cpp / mpack/Rtrmm.cpp; results are
+   bit-identical to it at any thread count.
+
+   Permitted call sites, and only these:
+     Rtrsm_omp  Left/Lower/NoTranspose  Lal::getInvLowTriangularMatrix  sdpa_linear.cpp
+     Rtrmm_omp  Left/Lower/Transpose    Jal::getInvCholAndInv           sdpa_jordan.cpp
+
+   The parallel axis is the n COLUMNS of B in both, because that is the axis that is
+   independent in the Left-side branches being replaced.  It is NOT the independent axis
+   for side == "Right", where the columns form a dependent chain and the m rows are
+   independent instead.  Do not generalise these to other cases by analogy: a column
+   split of a Right-side call compiles, converges and returns wrong answers.  If a
+   Right/Lower/Transpose case is added here later (mpack/Rpotrf.cpp:143 is that shape),
+   it must be split over rows and carry its own gate constant. */
+void Rtrsm_omp(const char *side, const char *uplo, const char *transa,
+    const char *diag, mpackint m, mpackint n, qd_real alpha, qd_real * A,
+    mpackint lda, qd_real * B, mpackint ldb);
+void Rtrmm_omp(const char *side, const char *uplo, const char *transa,
+    const char *diag, mpackint m, mpackint n, qd_real alpha, qd_real * A,
+    mpackint lda, qd_real * B, mpackint ldb);
 void Rgemm(const char *transa, const char *transb, mpackint m, mpackint n,
     mpackint k, qd_real alpha, qd_real * A, mpackint lda, qd_real * B,
     mpackint ldb, qd_real beta, qd_real * C, mpackint ldc);

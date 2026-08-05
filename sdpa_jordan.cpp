@@ -187,7 +187,14 @@ bool Jal::getInvCholAndInv(DenseLinearSpace& invCholMat,
 
   for (int l=0; l<aMat.SDP_nBlock; ++l) {
     inverseMat.SDP_block[l].copyFrom(invCholMat.SDP_block[l]);
-    Rtrmm ("Left","Lower","Transpose","NonUnitDiag",
+    /* 2026-08-05: Rtrmm -> Rtrmm_omp ("B3", ported from the dd fork's bcb7801).
+       Forming Z^-1 = L**T * L is the other half of the Cholesky-inverse phase and was
+       entirely serial in this fork.  Rtrmm_omp splits it over the n columns of
+       inverseMat, which are independent for side == "Left", and delegates to the serial
+       Rtrmm below the work gate and for every argument combination other than
+       Left/Lower/Transpose -- so the letters below are load-bearing.  Bit-identical to
+       the serial kernel at any thread count.  See mpack/Rtrmm_omp.cpp. */
+    Rtrmm_omp ("Left","Lower","Transpose","NonUnitDiag",
 	   invCholMat.SDP_block[l].nRow,
 	   invCholMat.SDP_block[l].nCol,
 	   MONE,

@@ -443,7 +443,14 @@ bool Lal::getInvLowTriangularMatrix(DenseMatrix& retMat,
   switch (retMat.type) {
   case DenseMatrix::DENSE:
     retMat.setIdentity();
-    Rtrsm("Left","Lower","NoTraspose","NonUnitDiagonal",
+    /* 2026-08-05: Rtrsm -> Rtrsm_omp ("B3", ported from the dd fork's bcb7801).  This
+       solve is the Cholesky-inverse phase and was entirely serial in this fork.
+       Rtrsm_omp splits it over the n columns of retMat, which are independent for
+       side == "Left", and delegates to the serial Rtrsm below the work gate and for
+       every argument combination other than Left/Lower/NoTranspose -- so the letters
+       below are load-bearing.  Bit-identical to the serial kernel at any thread count.
+       See mpack/Rtrsm_omp.cpp and mpack/mpack_omp_tuning.h. */
+    Rtrsm_omp("Left","Lower","NoTraspose","NonUnitDiagonal",
 	   aMat.nRow, aMat.nCol, MONE, aMat.de_ele,
 	   aMat.nRow, retMat.de_ele, retMat.nRow);
     break;

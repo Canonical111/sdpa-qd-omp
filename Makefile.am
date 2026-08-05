@@ -7,6 +7,13 @@ bin_PROGRAMS = sdpa_qd
 # therefore keep a fully serial Rgemm. Note also that -fopenmp must actually
 # reach the compiler for the kernel to be threaded at all -- see the
 # --enable-openmp block in configure.in, which used to be inert.
+#
+# 2026-08-05: mpack/Rtrsm_omp.cpp and mpack/Rtrmm_omp.cpp ("B3") added on the same
+# terms.  Makefile.in is TRACKED in this repository and autoconf 2.62 / automake
+# 1.10.1 are not available to regenerate it, so it is hand-patched in five places
+# per new translation unit to match this list -- SOURCES_DIST, the $(OBJEXT) object
+# list, the @SYSTEM_MPACK_FALSE@ sources echo, the $(DEPDIR)/*.Po include, and the
+# explicit per-object compile rule.  Editing this file alone does NOT build.
 if SYSTEM_MPACK
 sdpa_qd_SOURCES = sdpa_chordal.cpp sdpa_dataset.cpp sdpa_io.cpp \
 sdpa_jordan.cpp sdpa_linear.cpp sdpa_main.cpp sdpa_newton.cpp sdpa_parts.cpp \
@@ -21,6 +28,7 @@ sdpa_include.h sdpa_io.h sdpa_jordan.h sdpa_linear.h sdpa_newton.h \
 sdpa_parts.h sdpa_right.h sdpa_struct.h sdpa_tool.h \
 mpack/Rdot.cpp  mpack/Rtrsm.cpp mpack/Rsyrk.cpp mpack/Raxpy.cpp \
 mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp mpack/mpack_omp_tuning.h \
+mpack/Rtrsm_omp.cpp mpack/Rtrmm_omp.cpp \
 mpack/Rtrmm.cpp mpack/Rtrsv.cpp mpack/iMlaenv.cpp\
 mpack/Rlamch.cpp mpack/Rlascl.cpp mpack/Rsytrd.cpp mpack/Rsterf.cpp\
 mpack/Rorgtr.cpp mpack/Rlatrd.cpp mpack/Rsyr2k.cpp mpack/Rsytd2.cpp \
