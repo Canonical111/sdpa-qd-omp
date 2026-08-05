@@ -1,5 +1,12 @@
 bin_PROGRAMS = sdpa_qd
 
+# 2026-08-05: the threaded Rgemm NN kernel (mpack/Rgemm_NN_omp.cpp) can only be
+# added to the in-tree mpack list in the "else" branch below. The SYSTEM_MPACK
+# branch links -lmblas_qd from an mpack installed elsewhere, which has no
+# threaded Rgemm and cannot receive one from here; --with-system-mpack builds
+# therefore keep a fully serial Rgemm. Note also that -fopenmp must actually
+# reach the compiler for the kernel to be threaded at all -- see the
+# --enable-openmp block in configure.in, which used to be inert.
 if SYSTEM_MPACK
 sdpa_qd_SOURCES = sdpa_chordal.cpp sdpa_dataset.cpp sdpa_io.cpp \
 sdpa_jordan.cpp sdpa_linear.cpp sdpa_main.cpp sdpa_newton.cpp sdpa_parts.cpp \
@@ -13,7 +20,8 @@ sdpa_struct.cpp sdpa_tool.cpp sdpa_chordal.h sdpa_dataset.h \
 sdpa_include.h sdpa_io.h sdpa_jordan.h sdpa_linear.h sdpa_newton.h \
 sdpa_parts.h sdpa_right.h sdpa_struct.h sdpa_tool.h \
 mpack/Rdot.cpp  mpack/Rtrsm.cpp mpack/Rsyrk.cpp mpack/Raxpy.cpp \
-mpack/Rgemm.cpp mpack/Rtrmm.cpp mpack/Rtrsv.cpp mpack/iMlaenv.cpp\
+mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp mpack/mpack_omp_tuning.h \
+mpack/Rtrmm.cpp mpack/Rtrsv.cpp mpack/iMlaenv.cpp\
 mpack/Rlamch.cpp mpack/Rlascl.cpp mpack/Rsytrd.cpp mpack/Rsterf.cpp\
 mpack/Rorgtr.cpp mpack/Rlatrd.cpp mpack/Rsyr2k.cpp mpack/Rsytd2.cpp \
 mpack/Rlanst.cpp mpack/Rlae2.cpp mpack/Rlapy2.cpp mpack/Rlasrt.cpp\

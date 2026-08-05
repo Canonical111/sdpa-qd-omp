@@ -2,17 +2,34 @@
 
 OpenMP-threaded fork of sdpa-qd, with its benchmark clock fixed.
 
-Fork of [nakatamaho/sdpa-qd](https://github.com/nakatamaho/sdpa-qd) (upstream README preserved as [README-UPSTREAM.md](README-UPSTREAM.md)) at `766eef3`, carrying two
+Fork of [nakatamaho/sdpa-qd](https://github.com/nakatamaho/sdpa-qd) (upstream README preserved as [README-UPSTREAM.md](README-UPSTREAM.md)) at `766eef3`, carrying four
 patches. Reported upstream; not adopted there.
 
 1. **Timer fix.** `Time::rGetUseTime()` measured process CPU time summed over threads, so any
    parallel speedup *reported itself as a slowdown* (arch0: an 84.6 → 49.8 s run printed 90.9).
    Now `std::chrono::steady_clock` elapsed time. Anyone who ever benchmarked threaded sdpa-qd
    against its own output should re-check their conclusions.
-2. **Schur-complement threading** — the first OpenMP in this codebase (upstream has none, and
-   its `--enable-openmp` flags are vestigial: they do not add `-fopenmp`).
+2. **Schur-complement threading** — the first OpenMP in this codebase (upstream has none).
+3. **Threaded `Rgemm`, NN case** (`mpack/Rgemm_NN_omp.cpp`). Patch 2 threads one loop; every
+   BLAS kernel underneath it stayed serial, and `Rgemm` is where the time is — measured on an
+   EPYC 7232P at one thread, **79.8%** of `gpp100`'s wall and **36.9%** of `arch0`'s. On
+   `gpp100` at `OMP_NUM_THREADS=8` the process did not create a second thread at all. Only the
+   NN case is split out so far: that is 100% of `gpp100`'s `Rgemm` time and 97.6% of `arch0`'s,
+   but 37% of `truss5`'s and none of the blocked Cholesky's trailing update, which is NT.
+   Bit-identical to the serial code by construction, and independent of thread count — each
+   column of `C` is written by exactly one thread and its accumulation order is unchanged.
+4. **`--enable-openmp` actually enables OpenMP.** It used to be inert: it added
+   `-DENABLE_OPENMP -DNUM_OF_THREADS=` (neither of which anything reads) and no `-fopenmp`,
+   so `./configure --enable-openmp` produced a binary byte-identical to a serial one that
+   still accepted `OMP_NUM_THREADS` and still reported exactly 1.00× at every thread count.
+   It now probes for a working OpenMP flag and **fails the configure** if it cannot find one.
+   CI has a matrix row that builds with `--enable-openmp` and no `-fopenmp` in `CXXFLAGS` and
+   asserts `nm` finds GOMP symbols — nothing in the program's output can tell those two
+   binaries apart, so the check has to be at the object level.
 
-**Measured** (external wall clock, median of 3 pinned repeats): **1.50×** on an EPYC 7232P
+**Measured** (external wall clock, median of 3 pinned repeats) — **these numbers predate
+patch 3 and describe patches 1-2 only; they have not been re-taken with the threaded
+`Rgemm`**: **1.50×** on an EPYC 7232P
 over the four problems with unchanged trajectories (arch0 264.3 → 171.8 s); **1.53×** on an
 i9-13900K and **1.48×** on an M1 Max over all five problems — trajectories are identical
 everywhere on those two machines, `gpp100` included. On the EPYC, `gpp100` is excluded

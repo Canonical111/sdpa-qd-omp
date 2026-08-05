@@ -7,12 +7,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {name: openmp, flags: "-O2 -funroll-all-loops -fopenmp", ld: "-fopenmp", gomp_min: 1}
-          - {name: serial, flags: "-O2 -funroll-all-loops",          ld: "",         gomp_min: 0}
+          - {name: openmp, flags: "-O2 -funroll-all-loops -fopenmp", ld: "-fopenmp", gomp_min: 1, conf: ""}
+          - {name: serial, flags: "-O2 -funroll-all-loops",          ld: "",         gomp_min: 0, conf: ""}
+          # 2026-08-05: --enable-openmp with NO -fopenmp anywhere in the flags. Until the
+          # configure.in fix landed, this row produced a binary byte-identical to `serial`
+          # -- zero GOMP symbols -- while still accepting OMP_NUM_THREADS and reporting
+          # 1.00x at every thread count. The nm check below is the only thing that can
+          # tell the two apart, which is exactly why it has to run in CI: nothing in the
+          # program's own output distinguishes a serial binary from a threaded one here.
+          - {name: enable-openmp, flags: "-O2 -funroll-all-loops",   ld: "",         gomp_min: 1, conf: "--enable-openmp"}
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y build-essential autoconf automake libtool libqd-dev
       - run: ./configure --with-qd-includedir=/usr/include --with-qd-libdir=/usr/lib/x86_64-linux-gnu
+             ${{ matrix.conf }}
              CXXFLAGS="${{ matrix.flags }}" CFLAGS="${{ matrix.flags }}" LDFLAGS="${{ matrix.ld }}"
       - run: make -j"$(nproc)" || true
       - name: SPOOLES CC fix if the first make stopped there

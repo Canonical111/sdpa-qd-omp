@@ -76,6 +76,28 @@ an m by k matrix, op(B) a k by n matrix and C an m by n matrix.
 
 #include <mblas_qd.h>
 
+/* MODIFIED, 2026-08-05: the NN case is dispatched to a threaded kernel in
+   mpack/Rgemm_NN_omp.cpp.  See git log.
+
+   Only NN is split out.  That is a deliberate first increment, not a claim of
+   coverage: of this fork's Rgemm call sites, sdpa_linear.cpp:896/:989/:1081
+   (Lal::multiply) are NN, but Lal::tran_multiply is TN, Lal::multiply_tran is
+   NT, and Rpotrf's blocked trailing update is NT on the "Lower" path -- which
+   is the only path SDPA ever calls.  Those three cases still run the serial
+   bodies below.  Measured on thanos, NN is 100% of gpp100's Rgemm time and
+   97.6% of arch0's (together 89% of the published qd total), but only 36.9% of
+   truss5's and it is 0% of the blocked Cholesky.  See
+   patches/b5_notes/08_per_problem_gemm_census.md before extending or quoting
+   this.
+
+   The declaration is kept file-local rather than added to mblas_qd.h on
+   purpose: Rgemm_NN_omp exists only in this in-tree mpack, and the
+   --with-system-mpack build links an external -lmblas_qd that does not have
+   it. */
+void Rgemm_NN_omp(mpackint m, mpackint n, mpackint k, qd_real alpha,
+    qd_real * A, mpackint lda, qd_real * B, mpackint ldb, qd_real beta,
+    qd_real * C, mpackint ldc);
+
 void
 Rgemm(const char *transa, const char *transb, mpackint m, mpackint n, mpackint k,
     qd_real alpha, qd_real * A, mpackint lda, qd_real * B, mpackint ldb,
@@ -153,26 +175,8 @@ Rgemm(const char *transa, const char *transb, mpackint m, mpackint n, mpackint k
     if (notb) {
 	if (nota) {
 	    //Form C := alpha*A*B + beta*C.
-	    for (mpackint j = 0; j < n; j++) {
-		if (beta == Zero) {
-		    for (mpackint i = 0; i < m; i++) {
-			C[i + j * ldc] = Zero;
-		    }
-		} else if (beta != One) {
-		    for (mpackint i = 0; i < m; i++) {
-			C[i + j * ldc] = beta * C[i + j * ldc];
-		    }
-		}
-		for (mpackint l = 0; l < k; l++) {
-		    if (B[l + j * ldb] != Zero) {
-			temp = alpha * B[l + j * ldb];
-			for (mpackint i = 0; i < m; i++) {
-			    C[i + j * ldc] =
-				C[i + j * ldc] + temp * A[i + l * lda];
-			}
-		    }
-		}
-	    }
+	    //Threaded; bit-identical to the serial body it replaces.
+	    Rgemm_NN_omp(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
 	} else {
 //Form  C := alpha*A'*B + beta*C.
 	    for (mpackint j = 0; j < n; j++) {

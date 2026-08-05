@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 /* MODIFIED from upstream (GPLv2 2a notice), 2026-07-31: Schur-complement (bMat) construction threaded. See git log. */
 /* MODIFIED from upstream (GPLv2 2a notice), 2026-08-04: rename rgemm_owns_block -> prefer_serial_block; remove copied DD timings and the claim that qd's Rgemm threads. See git log. */
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-05: comments updated for mpack's new threaded Rgemm NN kernel; remaining copied DD timings removed. See git log. */
 #include <sdpa_newton.h>
 #include <sdpa_parts.h>
 #include <vector>
@@ -53,17 +54,24 @@ static inline double sdpa_omp_bytes_per_elem() {
     return (double)sizeof(qd_real);
 }
 // Choosing the parallel axis. For an F1/F2-dominated block the per-constraint setup is a
-// blockDim^3 dense gemm. In the dd fork that gemm is threaded, so leaving k1 serial there
-// hands the work to Rgemm; THIS backend has no threaded gemm at all (mpack/Rgemm.cpp
-// contains no OpenMP), so the threshold below cannot be justified that way and the name
-// PREFER_SERIAL_BLOCK is the accurate description of what it does.
+// blockDim^3 dense gemm, and that gemm is NN (run_k1 -> Lal::let -> Lal::multiply ->
+// sdpa_linear.cpp:896).
 //
-// Its measured effect here is approximately neutral -- stock versus forced off differs by
-// 0.1% or less on gpp124-1, theta1, truss5 and theta3, with identical iteration counts and
-// objectives (see the fuller note at the decision site). The value is retained only to
-// preserve current behaviour, NOT because it has been derived or validated on quad-double.
-// Re-derive it once mpack has a threaded gemm; the 80^3-100^3 crossover quoted in the dd
-// fork was measured on double-double and does not transfer.
+// UPDATED 2026-08-05: as of mpack/Rgemm_NN_omp.cpp this backend DOES have a threaded gemm
+// on the NN path, so the dd fork's original justification for this threshold -- "leave k1
+// serial and hand the work to Rgemm" -- is now applicable here for the first time. It is
+// still not what the value below was derived from, and the value has still never been
+// measured on quad-double. The name PREFER_SERIAL_BLOCK remains the accurate description
+// of what the flag does; it does not assert who gets the parallelism.
+//
+// Its measured effect (before the port, i.e. with a fully serial gemm) was approximately
+// neutral -- stock versus forced off differs by 0.1% or less on gpp124-1, theta1, truss5
+// and theta3, with identical iteration counts and objectives (see the fuller note at the
+// decision site). The value is retained only to preserve current behaviour. It must now be
+// RE-MEASURED with the threaded NN kernel in place, because the trade it encodes has only
+// just become a real trade. The 80^3-100^3 crossover quoted in the dd fork was measured on
+// double-double and does not transfer -- a qd multiply-add is 123-160 ns against dd's
+// 2.6-4.1 ns.
 #ifndef SDPA_OMP_PREFER_SERIAL_BLOCK
 #define SDPA_OMP_PREFER_SERIAL_BLOCK 700000.0
 #endif
@@ -1119,17 +1127,23 @@ void Newton::compute_bMat_dense_SDP(InputData &inputData, Solutions &currentPt, 
         }
         // Leave k1 serial on blocks where threading it measurably loses.
         //
-        // NOTE (2026-08-04): the name below and this rule were inherited from the dd
-        // fork, where Rgemm IS threaded. In THIS fork mpack/Rgemm.cpp has no OpenMP at
-        // all, so nothing "owns" the parallelism here -- the flag simply means "this
-        // block is better left serial than k1-threaded". Measured on thanos, 8 threads,
-        // stock gate vs gate forced off: gpp124-1 95.57 vs 95.65 s, theta1 8.17 vs 8.17,
-        // truss5 25.71 vs 25.71, theta3 1771.92 vs 1767.81 -- identical iterations and
-        // objectives throughout. An instrumented build confirms the gate does flip `par`
-        // from 0 to 1; the runtime does not move because gpp124-1's bMat cost sits in a
-        // few F1 constraints and schedule(dynamic,1) cannot split one constraint's work.
-        // So the gate is currently INERT in qd. Do not "fix" it either way until a
-        // threaded Rgemm exists here; then re-derive it with qd measurements.
+        // NOTE (2026-08-04, revised 2026-08-05): the name below and this rule were
+        // inherited from the dd fork, where Rgemm IS threaded. Until 2026-08-05 this fork
+        // had no threaded gemm at all, so nothing "owned" the parallelism here and the
+        // flag meant only "this block is better left serial than k1-threaded". Measured on
+        // thanos then, 8 threads, stock gate vs gate forced off: gpp124-1 95.57 vs 95.65 s,
+        // theta1 8.17 vs 8.17, truss5 25.71 vs 25.71, theta3 1771.92 vs 1767.81 --
+        // identical iterations and objectives throughout. An instrumented build confirms
+        // the gate does flip `par` from 0 to 1; the runtime did not move because
+        // gpp124-1's bMat cost sits in a few F1 constraints and schedule(dynamic,1) cannot
+        // split one constraint's work.
+        //
+        // mpack/Rgemm_NN_omp.cpp now threads the NN case, and the per-constraint setup
+        // gemm is NN, so leaving a block serial here really does hand its work to Rgemm --
+        // the condition this gate was written for holds in this fork for the first time.
+        // All the numbers above predate that and no longer describe the trade. RE-MEASURE
+        // before changing the constant, and re-measure it on qd: the dd values do not
+        // transfer.
         // Threading k1 on such a block makes each blockDim^3 gemm serial inside a
         // thread; on this backend that is not obviously worse or better (see below).
         const double setup_gemm =
@@ -1191,10 +1205,17 @@ void Newton::compute_bMat_dense_SDP(InputData &inputData, Solutions &currentPt, 
         // The body is a lambda so that the SERIAL path can run without entering any
         // OpenMP construct at all. This matters: "#pragma omp parallel if(false)" still
         // creates a parallel region (a team of one), which makes every inner Rgemm call
-        // *nested* -- and nested parallelism is off by default, so Rgemm's own threading
-        // would be silently disabled. On gpp124-1 that cost 7.7x in bMat (0.035s -> 0.269s)
-        // versus upstream, because the k1 loop did not engage while Rgemm's threading was
-        // lost anyway.
+        // *nested* -- and nested parallelism is off by default, so the NN kernel's own
+        // threading would be silently disabled.
+        //
+        // (2026-08-05: the previous version of this comment quoted "7.7x in bMat,
+        // 0.035s -> 0.269s on gpp124-1". Those were dd measurements copied wholesale into
+        // this fork -- gpp124-1 was never in qd's own corpus, and the surrounding copied
+        // triple was already found to be ~25x too fast for quad-double. They are deleted
+        // rather than re-derived; the structural argument above stands on its own and did
+        // not depend on them. The claim they were attached to has ALSO only just become
+        // true here: before mpack/Rgemm_NN_omp.cpp existed there was no Rgemm threading to
+        // lose, so the lambda was correct for a different reason than the one stated.)
         auto run_k1 = [&](int k1, DenseMatrix *w1, DenseMatrix *w2,
                           double &a_pre, double &a_f1, double &a_f2, double &a_f3,
                           bool may_need_priv, bool &owns_priv,
@@ -1285,8 +1306,10 @@ void Newton::compute_bMat_dense_SDP(InputData &inputData, Solutions &currentPt, 
         // budget, and either can bring it to 1. Entering `omp parallel num_threads(1)`
         // creates a team of one, which is exactly the case the serial path below exists to
         // avoid: it makes any inner Rgemm call nested, and nested parallelism is off by
-        // default, so Rgemm's own threading is silently lost. That is most likely to bite
-        // large GMP blocks, where the memory cap does reduce the team.
+        // default, so the NN kernel's threading is silently lost. That is most likely to
+        // bite large blocks, where the memory cap does reduce the team.
+        // (2026-08-05: this used to say "large GMP blocks" -- a stray reference to a
+        // different fork, in a file that only ever builds against quad-double.)
         // !omp_in_parallel() additionally keeps this correct if the routine is ever reached
         // from an enclosing parallel region.
         // The WHOLE decision is inside the guard: max_threads exists only when _OPENMP is
@@ -1327,7 +1350,9 @@ void Newton::compute_bMat_dense_SDP(InputData &inputData, Solutions &currentPt, 
                 }
             }
         } else {
-            // No OpenMP construct at all here, so inner Rgemm/Rdot keep their own threading.
+            // No OpenMP construct at all here, so an inner Rgemm on the NN path keeps its
+            // own threading (mpack/Rgemm_NN_omp.cpp). Rdot, and Rgemm's TN/NT/TT cases,
+            // have no threading in this fork -- there is nothing to keep for those.
             DenseMatrix priv1, priv2;
             bool owns_priv = false;
             for (int k1 = 0; k1 < nConstraint; k1++)

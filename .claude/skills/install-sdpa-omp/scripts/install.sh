@@ -172,7 +172,12 @@ esac
 # ---- configure ----------------------------------------------------------------
 note "configure"
 if [ "$SOLVER" = qd ]; then
-    # TRAP: sdpa-qd's --enable-openmp is vestigial; -fopenmp must go in the flags.
+    # TRAP (historical): sdpa-qd's --enable-openmp used to be vestigial -- it added no
+    # -fopenmp and silently produced a serial binary that still reported 1.00x. As of
+    # 2026-08-05 it probes for a working flag and aborts the configure if there is none.
+    # This path still puts -fopenmp in the flags rather than switching to --enable-openmp,
+    # deliberately: it is the exact recipe the published qd benchmark binaries were built
+    # with, and changing it here would change what "reproduce the table" means.
     ./configure CC="$GCC" CXX="$GXX" \
         CXXFLAGS="$OPT_FLAGS $OMP_FLAG" CFLAGS="$OPT_FLAGS $OMP_FLAG" LDFLAGS="$OMP_FLAG" \
         "${CFG[@]}" >"$LOG/configure.log" 2>&1 \
