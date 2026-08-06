@@ -1,0 +1,7 @@
+machine	arm	commit	omp_mode	configure_flags	md5	size_B	omp_syms	fopenmp_compile_lines	obj_TUs	omp_TUs	omp_TU_names
+thanos-epyc7232p	baseline	3376c79	cxxflags	CXXFLAGS=-O2 -funroll-all-loops -fopenmp	71abe618bbf8e25b34923cdaec547cd3	6138496	169	61	60	1	sdpa_newton:10
+thanos-epyc7232p	HEAD	443799f	cxxflags	CXXFLAGS=-O2 -funroll-all-loops -fopenmp	b8d52bfa70ae8b30632eb69ad37458a1	6226600	169	64	63	4	Rgemm_NN_omp:5,Rtrmm_omp:6,Rtrsm_omp:6,sdpa_newton:10
+thanos-epyc7232p	baseline	3376c79	enableonly	--enable-openmp, no -fopenmp in CXXFLAGS	28b4ced44fdcae1a7dfb55b0b25b4276	5527552	0	0	-1	-1	-
+thanos-epyc7232p	baseline	3376c79	none	no OpenMP flag at all	28b4ced44fdcae1a7dfb55b0b25b4276	5527552	0	0	-1	-1	-
+thanos-epyc7232p	HEAD	443799f	enableonly	--enable-openmp, no -fopenmp in CXXFLAGS	b8d52bfa70ae8b30632eb69ad37458a1	6226600	169	64	-1	-1	-
+thanos-epyc7232p	HEAD	443799f	none	no OpenMP flag at all	f3576332fb155e59db034fd21156a3f2	5611328	0	0	-1	-1	-
