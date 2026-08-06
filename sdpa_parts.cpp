@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 /* MODIFIED from upstream (GPLv2 2a notice), 2026-07-31: per-formula bMat timers reported as worker-seconds. See git log. */
 /* MODIFIED from upstream (GPLv2 2a notice), 2026-08-04: every parameter-file conversion is checked; a malformed entry is diagnosed instead of leaving the default in place. See git log. */
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-05: MehrotraCorrector computes C.DxMat and b.DyVec once instead of twice. See git log. */
 #include <sdpa_parts.h>
 
 namespace sdpa {
@@ -456,6 +457,28 @@ void StepLength::MehrotraCorrector(InputData& inputData,
   Vector& b = inputData.b;
   SparseLinearSpace& C = inputData.C;
   int nDim = currentPt.nDim;
+
+  // 2026-08-05 ("C9"): compute C.DxMat and b.DyVec once instead of twice.
+  //
+  // Upstream declared incPrimalObj / incDualObj inside the two else-branches below, let
+  // them die there, and then redeclared and RECOMPUTED both inside the pdFEAS block at
+  // the end of this function. Under phase == pdFEAS both else-branches run, so both dot
+  // products were evaluated twice per corrector step. Hoisting the declarations here is
+  // what makes the second evaluation removable at all -- deleting the recomputation
+  // without hoisting would not compile.
+  //
+  // Reuse is bit-safe: nothing between the first evaluation and the pdFEAS block writes
+  // to newton.DxMat, newton.DyVec, inputData.C or inputData.b (computeStepLength runs
+  // before all of it, and Lal::getInnerProduct is read-only on its operands), so the
+  // same operands are re-read and the same value is produced. Under any phase other than
+  // pdFEAS the trailing block never runs and there was no duplication to remove.
+  //
+  // Zero-initialised deliberately. They are only READ under pdFEAS, where both branches
+  // above are guaranteed to have assigned them, but this project has already been bitten
+  // by uninitialised stack reads and an unwritten qd_real here would be one.
+  qd_real incPrimalObj = 0.0;
+  qd_real incDualObj   = 0.0;
+
   computeStepLength(currentPt, newton, work, com);
   // adjust steplength with param.gammaStar
   // param.gammaStar = 0.5;
@@ -473,7 +496,6 @@ void StepLength::MehrotraCorrector(InputData& inputData,
       primal = 1.0;
     }
   } else {
-    qd_real incPrimalObj;
     Lal::let(incPrimalObj,'=',C,'.',newton.DxMat);
     if(incPrimalObj>0.0) {
       // when primal is feasible
@@ -495,7 +517,6 @@ void StepLength::MehrotraCorrector(InputData& inputData,
   } else {
     // when dual is feasible
     // check stepD1 is effective or not.
-    qd_real incDualObj;
     Lal::let(incDualObj,'=',b,'.',newton.DyVec);
     if(incDualObj<0.0) {
       if (dual>primal) {
@@ -550,13 +571,13 @@ void StepLength::MehrotraCorrector(InputData& inputData,
   if (phase.value == SolveInfo::pdFEAS){
 	// if (mu.current < 1.0){
 	
-	qd_real objValDual,objValPrimal,incDualObj,incPrimalObj,maxRatio;
+	qd_real objValDual,objValPrimal,maxRatio;
 
 	Lal::let(objValDual,'=',inputData.b,'.',currentPt.yVec);
 	Lal::let(objValPrimal,'=',inputData.C,'.',currentPt.xMat);
-	Lal::let(incDualObj,'=',b,'.',newton.DyVec);
+	// incDualObj / incPrimalObj were already computed above from exactly these
+	// operands (see the C9 note at the top of this function) -- reused, not recomputed.
 	incDualObj *= dual;
-	Lal::let(incPrimalObj,'=',C,'.',newton.DxMat);
 	incPrimalObj *= primal;
 	maxRatio = (objValDual - objValPrimal) / (incPrimalObj - incDualObj);
 
