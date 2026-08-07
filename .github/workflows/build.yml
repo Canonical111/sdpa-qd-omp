@@ -348,12 +348,12 @@ jobs:
         cc: [gcc, clang]
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y build-essential autoconf automake libtool clang
+      - run: sudo apt-get update && sudo apt-get install -y build-essential autoconf automake libtool clang libqd-dev
       - name: normal build first (third-party deps must not see the strict flags)
         run: |
           set -e
           autoreconf -fi >/dev/null 2>&1 || true
-          ./configure --enable-openmp=no >/dev/null
+          ./configure --enable-openmp=no --with-qd-includedir=/usr/include --with-qd-libdir=/usr/lib/x86_64-linux-gnu >/dev/null
           make -j"$(nproc)" >build.log 2>&1 || true
           MK=$(find . -path '*spooles*' -name Make.inc | head -1)
           if [ -n "$MK" ] && [ ! -x ./sdpa_qd ]; then
