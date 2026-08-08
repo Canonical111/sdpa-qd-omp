@@ -30,6 +30,7 @@ Solutions::Solutions()
 {
   // Nothings needs.
   notPositiveDefinite = false;
+  restoredToLastIterate = false;
 }
 
 Solutions::~Solutions()
@@ -192,8 +193,21 @@ bool Solutions::update(StepLength& alpha, Newton& newton,
 
   total_judge = computeInverse(work,com);
   if (total_judge == FAILURE) {
-    // The new X or Z is not positive definite. See sdpa_dataset.h.
+    // The new X or Z is not positive definite. The step is still in scope, so
+    // the update is TRANSACTIONAL the cheap way: subtract it back and refactor.
+    // The restored point differs from the true previous iterate only by one
+    // add/sub rounding per entry; it was strictly interior, so the refactor
+    // succeeds and the caller reports a PARTIAL result with a valid point.
     notPositiveDefinite = true;
+    qd_real minus_primal = -alpha.primal;
+    qd_real minus_dual = -alpha.dual;
+    Lal::let(xMat,'=',xMat,'+',newton.DxMat,&minus_primal);
+    Lal::let(yVec,'=',yVec,'+',newton.DyVec,&minus_dual);
+    Lal::let(zMat,'=',zMat,'+',newton.DzMat,&minus_dual);
+    if (computeInverse(work,com) == _SUCCESS) {
+      notPositiveDefinite = false;
+      restoredToLastIterate = true;
+    }
   }
 
   return total_judge;

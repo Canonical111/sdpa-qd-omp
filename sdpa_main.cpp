@@ -609,9 +609,13 @@ int pinpal(char* dataFile, char* initFile, char* outFile,
       //     "cannot move" message as before.
       //   - Cholesky of the new X or Z failed: the iterate has left the
       //     positive definite cone and is not a solution.
-      if (currentPt.notPositiveDefinite) {
-	failureReason = "Cholesky factorisation failed on the updated X or Z: the iterate is no longer positive definite";
-	failureIteration = pIteration;
+      if (currentPt.restoredToLastIterate) {
+        // Rolled back to the last valid iterate; report PARTIAL, exit 3.
+        failureReason = "the updated X or Z left the positive definite cone; the step was rolled back and the last valid iterate is reported";
+        failureIteration = pIteration;
+      } else if (currentPt.notPositiveDefinite) {
+        failureReason = "Cholesky factorisation failed on the updated X or Z and the rollback could not be refactored: the iterate is corrupted";
+        failureIteration = pIteration;
         iterateCorrupted = true;
       } else {
 	// if step length is too short,
