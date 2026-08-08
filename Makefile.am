@@ -27,7 +27,7 @@ sdpa_struct.cpp sdpa_tool.cpp sdpa_chordal.h sdpa_dataset.h \
 sdpa_include.h sdpa_io.h sdpa_jordan.h sdpa_linear.h sdpa_newton.h \
 sdpa_parts.h sdpa_right.h sdpa_struct.h sdpa_tool.h \
 mpack/Rdot.cpp  mpack/Rtrsm.cpp mpack/Rsyrk.cpp mpack/Raxpy.cpp \
-mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp mpack/mpack_omp_tuning.h \
+mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp mpack/Rgemm_NT_omp.cpp mpack/mpack_omp_tuning.h \
 mpack/Rtrsm_omp.cpp mpack/Rtrmm_omp.cpp \
 mpack/Rtrmm.cpp mpack/Rtrsv.cpp mpack/iMlaenv.cpp\
 mpack/Rlamch.cpp mpack/Rlascl.cpp mpack/Rsytrd.cpp mpack/Rsterf.cpp\

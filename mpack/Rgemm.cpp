@@ -97,6 +97,18 @@ an m by k matrix, op(B) a k by n matrix and C an m by n matrix.
 void Rgemm_NN_omp(mpackint m, mpackint n, mpackint k, qd_real alpha,
     qd_real * A, mpackint lda, qd_real * B, mpackint ldb, qd_real beta,
     qd_real * C, mpackint ldc);
+/* MODIFIED, 2026-08-08: the NT case is likewise dispatched to a threaded
+   kernel in mpack/Rgemm_NT_omp.cpp.  NT is Rpotrf's blocked trailing update on
+   the "Lower" path -- the only path SDPA calls -- so before this the ENTIRE
+   Schur-complement Cholesky ran serial in this fork.  Invisible on the
+   published small-m set (NN is 89% of its Rgemm time, see the note above);
+   dominant for many-constraints/small-blocks problems, where m = 2439 with
+   blocks <= 30 measured one-core flat at every thread count.  TN and TT still
+   run the serial bodies below: TN's only solver call site is
+   Lal::tran_multiply and TT has none, neither shows in any census. */
+void Rgemm_NT_omp(mpackint m, mpackint n, mpackint k, qd_real alpha,
+    qd_real * A, mpackint lda, qd_real * B, mpackint ldb, qd_real beta,
+    qd_real * C, mpackint ldc);
 
 void
 Rgemm(const char *transa, const char *transb, mpackint m, mpackint n, mpackint k,
@@ -194,27 +206,10 @@ Rgemm(const char *transa, const char *transb, mpackint m, mpackint n, mpackint k
 	}
     } else {
 	if (nota) {
-//Form  C := alpha*A*B' + beta*C.
-	    for (mpackint j = 0; j < n; j++) {
-		if (beta == Zero) {
-		    for (mpackint i = 0; i < m; i++) {
-			C[i + j * ldc] = Zero;
-		    }
-		} else if (beta != One) {
-		    for (mpackint i = 0; i < m; i++) {
-			C[i + j * ldc] = beta * C[i + j * ldc];
-		    }
-		}
-		for (mpackint l = 0; l < k; l++) {
-		    if (B[j + l * ldb] != Zero) {
-			temp = alpha * B[j + l * ldb];
-			for (mpackint i = 0; i < m; i++) {
-			    C[i + j * ldc] =
-				C[i + j * ldc] + temp * A[i + l * lda];
-			}
-		    }
-		}
-	    }
+	    //Form C := alpha*A*B' + beta*C.
+	    //Threaded; bit-identical to the serial body it replaces (the body
+	    //moved verbatim into mpack/Rgemm_NT_omp.cpp, zero-skip included).
+	    Rgemm_NT_omp(m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
 	} else {
 //Form  C := alpha*A'*B' + beta*C.
 	    for (mpackint j = 0; j < n; j++) {

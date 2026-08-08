@@ -56,7 +56,7 @@ am__sdpa_qd_SOURCES_DIST = sdpa_chordal.cpp sdpa_dataset.cpp \
 	sdpa_jordan.h sdpa_linear.h sdpa_newton.h sdpa_parts.h \
 	sdpa_right.h sdpa_struct.h sdpa_tool.h mpack/Rdot.cpp \
 	mpack/Rtrsm.cpp mpack/Rsyrk.cpp mpack/Raxpy.cpp \
-	mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp \
+	mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp mpack/Rgemm_NT_omp.cpp \
 	mpack/mpack_omp_tuning.h mpack/Rtrsm_omp.cpp \
 	mpack/Rtrmm_omp.cpp mpack/Rtrmm.cpp mpack/Rtrsv.cpp \
 	mpack/iMlaenv.cpp mpack/Rlamch.cpp mpack/Rlascl.cpp \
@@ -91,6 +91,7 @@ am__sdpa_qd_SOURCES_DIST = sdpa_chordal.cpp sdpa_dataset.cpp \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Raxpy.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rgemm.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rgemm_NN_omp.$(OBJEXT) \
+@SYSTEM_MPACK_FALSE@	sdpa_qd-Rgemm_NT_omp.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rtrsm_omp.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rtrmm_omp.$(OBJEXT) \
 @SYSTEM_MPACK_FALSE@	sdpa_qd-Rtrmm.$(OBJEXT) \
@@ -310,7 +311,7 @@ top_srcdir = @top_srcdir@
 @SYSTEM_MPACK_FALSE@sdpa_include.h sdpa_io.h sdpa_jordan.h sdpa_linear.h sdpa_newton.h \
 @SYSTEM_MPACK_FALSE@sdpa_parts.h sdpa_right.h sdpa_struct.h sdpa_tool.h \
 @SYSTEM_MPACK_FALSE@mpack/Rdot.cpp  mpack/Rtrsm.cpp mpack/Rsyrk.cpp mpack/Raxpy.cpp \
-@SYSTEM_MPACK_FALSE@mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp mpack/mpack_omp_tuning.h \
+@SYSTEM_MPACK_FALSE@mpack/Rgemm.cpp mpack/Rgemm_NN_omp.cpp mpack/Rgemm_NT_omp.cpp mpack/mpack_omp_tuning.h \
 @SYSTEM_MPACK_FALSE@mpack/Rtrsm_omp.cpp mpack/Rtrmm_omp.cpp \
 @SYSTEM_MPACK_FALSE@mpack/Rtrmm.cpp mpack/Rtrsv.cpp mpack/iMlaenv.cpp\
 @SYSTEM_MPACK_FALSE@mpack/Rlamch.cpp mpack/Rlascl.cpp mpack/Rsytrd.cpp mpack/Rsterf.cpp\
@@ -415,6 +416,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rdot.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rgemm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rgemm_NN_omp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rgemm_NT_omp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rgemv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sdpa_qd-Rlae2.Po@am__quote@
@@ -708,6 +710,20 @@ sdpa_qd-Rgemm_NN_omp.obj: mpack/Rgemm_NN_omp.cpp
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mpack/Rgemm_NN_omp.cpp' object='sdpa_qd-Rgemm_NN_omp.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -c -o sdpa_qd-Rgemm_NN_omp.obj `if test -f 'mpack/Rgemm_NN_omp.cpp'; then $(CYGPATH_W) 'mpack/Rgemm_NN_omp.cpp'; else $(CYGPATH_W) '$(srcdir)/mpack/Rgemm_NN_omp.cpp'; fi`
+
+sdpa_qd-Rgemm_NT_omp.o: mpack/Rgemm_NT_omp.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -MT sdpa_qd-Rgemm_NT_omp.o -MD -MP -MF $(DEPDIR)/sdpa_qd-Rgemm_NT_omp.Tpo -c -o sdpa_qd-Rgemm_NT_omp.o `test -f 'mpack/Rgemm_NT_omp.cpp' || echo '$(srcdir)/'`mpack/Rgemm_NT_omp.cpp
+@am__fastdepCXX_TRUE@	mv -f $(DEPDIR)/sdpa_qd-Rgemm_NT_omp.Tpo $(DEPDIR)/sdpa_qd-Rgemm_NT_omp.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mpack/Rgemm_NT_omp.cpp' object='sdpa_qd-Rgemm_NT_omp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -c -o sdpa_qd-Rgemm_NT_omp.o `test -f 'mpack/Rgemm_NT_omp.cpp' || echo '$(srcdir)/'`mpack/Rgemm_NT_omp.cpp
+
+sdpa_qd-Rgemm_NT_omp.obj: mpack/Rgemm_NT_omp.cpp
+@am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -MT sdpa_qd-Rgemm_NT_omp.obj -MD -MP -MF $(DEPDIR)/sdpa_qd-Rgemm_NT_omp.Tpo -c -o sdpa_qd-Rgemm_NT_omp.obj `if test -f 'mpack/Rgemm_NT_omp.cpp'; then $(CYGPATH_W) 'mpack/Rgemm_NT_omp.cpp'; else $(CYGPATH_W) '$(srcdir)/mpack/Rgemm_NT_omp.cpp'; fi`
+@am__fastdepCXX_TRUE@	mv -f $(DEPDIR)/sdpa_qd-Rgemm_NT_omp.Tpo $(DEPDIR)/sdpa_qd-Rgemm_NT_omp.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='mpack/Rgemm_NT_omp.cpp' object='sdpa_qd-Rgemm_NT_omp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -c -o sdpa_qd-Rgemm_NT_omp.obj `if test -f 'mpack/Rgemm_NT_omp.cpp'; then $(CYGPATH_W) 'mpack/Rgemm_NT_omp.cpp'; else $(CYGPATH_W) '$(srcdir)/mpack/Rgemm_NT_omp.cpp'; fi`
 
 sdpa_qd-Rtrsm_omp.o: mpack/Rtrsm_omp.cpp
 @am__fastdepCXX_TRUE@	$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sdpa_qd_CXXFLAGS) $(CXXFLAGS) -MT sdpa_qd-Rtrsm_omp.o -MD -MP -MF $(DEPDIR)/sdpa_qd-Rtrsm_omp.Tpo -c -o sdpa_qd-Rtrsm_omp.o `test -f 'mpack/Rtrsm_omp.cpp' || echo '$(srcdir)/'`mpack/Rtrsm_omp.cpp
