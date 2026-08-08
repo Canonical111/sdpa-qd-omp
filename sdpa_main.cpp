@@ -125,7 +125,8 @@ namespace sdpa {
 enum SolveResult {
   SDPA_EXIT_OK = 0,
   SDPA_EXIT_INPUT = 1,
-  SDPA_EXIT_NUMERICAL_FAILURE = 2
+  SDPA_EXIT_NUMERICAL_FAILURE = 2,
+  SDPA_EXIT_PARTIAL = 3
 };
 
 // Report a factorisation failure.
@@ -136,30 +137,51 @@ enum SolveResult {
 //                     output file or to stdout in this case: a valid run's
 //                     output must stay byte-for-byte what it was.
 // One function so the wording a harness greps for cannot drift between sites.
-static void reportSolveFailure(FILE* fpOut, const char* outFile,
-			       const char* reason, int iteration, bool fatal)
-{
-  fprintf(stderr, "%s: %s :: %s", SDPA_PROGRAM_NAME,
-	  fatal ? "SOLVE FAILED" : "WARNING", reason);
-  if (iteration >= 0) {
-    fprintf(stderr, " at iteration %d", iteration);
-  }
-  fprintf(stderr, "\n");
-  if (fatal == false) {
-    fprintf(stderr, "%s: the solver stopped here; %d iteration(s) were computed and the last iterate is reported as usual. Judge it from phase.value and the two objectives.\n",
-	    SDPA_PROGRAM_NAME, iteration);
-    return;
-  }
-  fprintf(stderr, "%s: no iteration completed, so no solution was computed; %s contains no solution section.\n",
-	  SDPA_PROGRAM_NAME, outFile ? outFile : "(no output file)");
-  if (fpOut) {
-    fprintf(fpOut, "\nsolveStatus = FAILURE\n");
-    fprintf(fpOut, "failureReason = %s\n", reason);
+/* Three failure severities, decided by what state survives (review2 finding 1):
+     FATAL      nothing was computed (iteration 0)          -> FAILURE, no solution, exit 2
+     CORRUPTED  Solutions::update() replaced X/Z and the    -> FAILURE, no solution, exit 2
+                new matrices are not positive definite; the
+                in-memory iterate is INVALID and printing it
+                would present a non-PSD point as a solution
+     PARTIAL    the Schur factorisation failed AFTER k good  -> PARTIAL, previous valid
+                iterations; currentPt was not yet touched       iterate printed, exit 3
+   Before this, every non-zero-iteration failure printed the ordinary final
+   section and exited 0 -- an updated-X/Z breakdown was indistinguishable from
+   success, and bench_v2.sh recorded it as an ok row. */
+enum FailureKind { FAIL_FATAL, FAIL_CORRUPTED, FAIL_PARTIAL };
+static void reportSolveFailure(FILE *fpOut, const char *outFile, const char *reason, int iteration, enum FailureKind kind) {
+    fprintf(stderr, "%s: %s :: %s", SDPA_PROGRAM_NAME, kind == FAIL_PARTIAL ? "PARTIAL RESULT" : "SOLVE FAILED", reason);
     if (iteration >= 0) {
-      fprintf(fpOut, "failureIteration = %d\n", iteration);
+        fprintf(stderr, " at iteration %d", iteration);
     }
-    fprintf(fpOut, "No solution is presented: no iteration completed, so the last iterate is the untouched initial point.\n");
-  }
+    fprintf(stderr, "\n");
+    if (kind == FAIL_PARTIAL) {
+        fprintf(stderr, "%s: %d iteration(s) completed before the failure; the LAST VALID iterate is reported below and labelled solveStatus = PARTIAL. Judge it from phase.value and the two objectives; exit status is 3, not 0.\n", SDPA_PROGRAM_NAME, iteration);
+        if (fpOut) {
+            fprintf(fpOut, "\nsolveStatus = PARTIAL\n");
+            fprintf(fpOut, "failureReason = %s\n", reason);
+            fprintf(fpOut, "failureIteration = %d\n", iteration);
+            fprintf(fpOut, "The section below is the last iterate BEFORE the failure; it is a valid interior point but not a certified solution.\n");
+        }
+        return;
+    }
+    if (kind == FAIL_CORRUPTED) {
+        fprintf(stderr, "%s: the update had already replaced X and Z when the factorisation failed, so the in-memory iterate is not positive definite; %s contains no solution section.\n", SDPA_PROGRAM_NAME, outFile ? outFile : "(no output file)");
+    } else {
+        fprintf(stderr, "%s: no iteration completed, so no solution was computed; %s contains no solution section.\n", SDPA_PROGRAM_NAME, outFile ? outFile : "(no output file)");
+    }
+    if (fpOut) {
+        fprintf(fpOut, "\nsolveStatus = FAILURE\n");
+        fprintf(fpOut, "failureReason = %s\n", reason);
+        if (iteration >= 0) {
+            fprintf(fpOut, "failureIteration = %d\n", iteration);
+        }
+        if (kind == FAIL_CORRUPTED) {
+            fprintf(fpOut, "No solution is presented: the failed update left X or Z outside the positive definite cone, so the in-memory iterate is invalid (see sdpa_dataset.h).\n");
+        } else {
+            fprintf(fpOut, "No solution is presented: no iteration completed, so the last iterate is the untouched initial point.\n");
+        }
+    }
 }
 
 int pinpal(char* dataFile, char* initFile, char* outFile,
@@ -393,7 +415,7 @@ int pinpal(char* dataFile, char* initFile, char* outFile,
     if (currentPt.computeInverse(work,com) == false) {
       reportSolveFailure(fpOut, outFile,
 			 "the initial point is not positive definite (Cholesky factorisation of X or Z failed)",
-			 -1, true);
+			 -1, FAIL_FATAL);
       fclose(fpOut);
       return SDPA_EXIT_NUMERICAL_FAILURE;
     }
@@ -477,6 +499,7 @@ int pinpal(char* dataFile, char* initFile, char* outFile,
   // leaves this NULL is a legitimate stopping condition and keeps exit 0.
   const char* failureReason = NULL;
   int failureIteration = -1;
+  bool iterateCorrupted = false;
 
   IO::printHeader(fpOut, Display);
   // -----------------------------------------------------
@@ -589,6 +612,7 @@ int pinpal(char* dataFile, char* initFile, char* outFile,
       if (currentPt.notPositiveDefinite) {
 	failureReason = "Cholesky factorisation failed on the updated X or Z: the iterate is no longer positive definite";
 	failureIteration = pIteration;
+        iterateCorrupted = true;
       } else {
 	// if step length is too short,
 	// we finish algorithm
@@ -637,12 +661,16 @@ int pinpal(char* dataFile, char* initFile, char* outFile,
   // fatal.  A factorisation that failed after real iterations is how this solver
   // normally terminates -- see the EXIT-STATUS POLICY at the top of this file --
   // so its iterate is printed exactly as before and only stderr is told.
-  const bool fatalFailure = (failureReason != NULL && failureIteration == 0);
-  if (failureReason != NULL) {
-    reportSolveFailure(fpOut, outFile, failureReason, failureIteration, fatalFailure);
-  }
-  if (fatalFailure) {
-    // Deliberately no printLastInfo(): nothing was computed to print.
+    const bool fatalFailure = (failureReason != NULL && failureIteration == 0);
+    const bool suppressSolution = fatalFailure || iterateCorrupted;
+    if (failureReason != NULL) {
+        reportSolveFailure(fpOut, outFile, failureReason, failureIteration,
+                           fatalFailure ? FAIL_FATAL : (iterateCorrupted ? FAIL_CORRUPTED : FAIL_PARTIAL));
+    }
+    if (suppressSolution) {
+        // Deliberately no printLastInfo(): either nothing was computed, or the
+        // update already destroyed the last valid iterate (sdpa_dataset.h says
+        // that point "is not a solution and must not be printed as one").
   } else {
 #if 1
   IO::printLastInfo(pIteration, mu, theta, solveInfo, alpha, beta,
@@ -714,7 +742,10 @@ int pinpal(char* dataFile, char* initFile, char* outFile,
   phase.~Phase();
 #endif
 
-  return fatalFailure ? SDPA_EXIT_NUMERICAL_FAILURE : SDPA_EXIT_OK;
+    if (fatalFailure || iterateCorrupted) {
+        return SDPA_EXIT_NUMERICAL_FAILURE;
+    }
+    return failureReason != NULL ? SDPA_EXIT_PARTIAL : SDPA_EXIT_OK;
 }
 
 static void message(char* argv0)
