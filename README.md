@@ -10,14 +10,19 @@ patches. Reported upstream; not adopted there.
    Now `std::chrono::steady_clock` elapsed time. Anyone who ever benchmarked threaded sdpa-qd
    against its own output should re-check their conclusions.
 2. **Schur-complement threading** — the first OpenMP in this codebase (upstream has none).
-3. **Threaded `Rgemm`, NN case** (`mpack/Rgemm_NN_omp.cpp`). Patch 2 threads one loop; every
-   BLAS kernel underneath it stayed serial, and `Rgemm` is where the time is — measured on an
-   EPYC 7232P at one thread, **79.8%** of `gpp100`'s wall and **36.9%** of `arch0`'s. On
-   `gpp100` at `OMP_NUM_THREADS=8` the process did not create a second thread at all. Only the
-   NN case is split out so far: that is 100% of `gpp100`'s `Rgemm` time and 97.6% of `arch0`'s,
-   but 37% of `truss5`'s and none of the blocked Cholesky's trailing update, which is NT.
-   Bit-identical to the serial code by construction, and independent of thread count — each
+3. **Threaded `Rgemm`, NN and NT cases** (`mpack/Rgemm_NN_omp.cpp`,
+   `mpack/Rgemm_NT_omp.cpp`). Patch 2 threads one loop; every BLAS kernel underneath it
+   stayed serial, and `Rgemm` is where the time is — measured on an EPYC 7232P at one
+   thread, **79.8%** of `gpp100`'s wall and **36.9%** of `arch0`'s. On `gpp100` at
+   `OMP_NUM_THREADS=8` the process did not create a second thread at all. NN is 100% of
+   `gpp100`'s `Rgemm` time and 97.6% of `arch0`'s; NT is the blocked Cholesky's trailing
+   update — negligible on those problems but the whole runtime for
+   many-constraints/small-blocks shapes, where the `m x m` Schur Cholesky ran one-core flat
+   before the NT kernel (measurements and raw-limb identity evidence in
+   [BENCHMARKS.md](BENCHMARKS.md)). Both kernels are bit-identical to the serial code by
+   construction and by a raw-limb kernel test, and independent of thread count — each
    column of `C` is written by exactly one thread and its accumulation order is unchanged.
+   TN and TT still run the serial bodies; neither shows in any per-problem gemm census.
 4. **`--enable-openmp` actually enables OpenMP.** It used to be inert: it added
    `-DENABLE_OPENMP -DNUM_OF_THREADS=` (neither of which anything reads) and no `-fopenmp`,
    so `./configure --enable-openmp` produced a binary byte-identical to a serial one that
@@ -61,12 +66,14 @@ Code discovers it automatically in a clone;
 
 ### macOS (Apple Silicon) — verified on an M1 Max
 
-Three traps, all with one-line causes. (1) **Homebrew's `qd` bottle cannot be used**: it is
-built with Apple clang against libc++, and linking with g++ fails on
-`operator<<(std::ostream&, qd_real const&)` — QD must be built from source with the same
-GCC. (2) The 2009 `config.guess` predates arm64. (3) A failed `make` re-untars SPOOLES and
-**clobbers any fix you made** — edit only after the first failure, and satisfy the
-`libspooles.a` target so it is not re-extracted.
+Historically this platform had three traps; two are now fixed in-tree and only one remains.
+**Homebrew's `qd` bottle cannot be used**: it is built with Apple clang against libc++, and
+linking with g++ fails on `operator<<(std::ostream&, qd_real const&)` — QD must be built
+from source with the same GCC. (The other two are gone: the tracked
+`config.guess`/`config.sub` are current automake copies that know arm64, and the SPOOLES
+compiler/flags fix is applied automatically by `spooles/Makefile` from
+`spooles/patches/patch-Make.inc`, with a build-log assertion that it took effect — no
+manual `Make.inc` surgery, no re-untar clobbering.)
 
 ```bash
 brew install gcc autoconf automake
@@ -78,20 +85,10 @@ tar xzf qd-2.3.24.tar.gz
 ( cd qd-2.3.24 && ./configure CC="$GCC" CXX="$GXX" \
     --prefix=$HOME/qd-gcc --enable-fortran=no && make -j8 && make install )
 
-# arm64-aware config.guess/config.sub
-cp "$(ls -d /opt/homebrew/share/automake-* | head -1)"/config.{guess,sub} .
-chmod u+w config.guess config.sub
-
 ./configure CC="$GCC" CXX="$GXX" \
             --with-qd-includedir=$HOME/qd-gcc/include --with-qd-libdir=$HOME/qd-gcc/lib \
             CXXFLAGS='-O2 -funroll-all-loops -fopenmp' \
             CFLAGS='-O2 -funroll-all-loops -fopenmp' LDFLAGS='-fopenmp'
-make -j8 || true   # first pass stops inside SPOOLES -- expected; the untar creates spooles/build
-M=spooles/build/Make.inc
-sed -i '' 's|^# CC = gcc|  CC = '$GCC'|' $M
-sed -i '' 's|^  CFLAGS += -O2 -funroll-all-loops|  CFLAGS += -O2 -funroll-all-loops -Wno-error=int-conversion -Wno-error=implicit-function-declaration -Wno-error=incompatible-pointer-types|' $M
-( cd spooles/build && find . -name '*.o' -delete && rm -f spooles.a && make global -f makefile )
-cp spooles/build/spooles.a spooles/build/libspooles.a   # satisfies the target; prevents re-untar
 make -j8
 nm sdpa_qd | grep -c GOMP       # non-zero when OpenMP is really in
 ```
