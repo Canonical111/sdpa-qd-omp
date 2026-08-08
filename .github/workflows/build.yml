@@ -122,18 +122,69 @@ jobs:
           [ "$rc" -ne 0 ] || fail "truncated file returned 0"
           [ "$rc" -lt 128 ] || fail "truncated file killed by signal (rc=$rc), not diagnosed"
 
+      - name: dimension edges -- big negative LP block, oversized products, mDIM=INT_MAX (review2 §8)
+        run: |
+          set -u
+          # (a) a -50000 diagonal/LP block has linear storage and must NOT be
+          # rejected by the SDP square-size limit (validated on all three forks:
+          # solves to a phase, rc=0)
+          printf '1\n1\n-50000\n1.0\n0 1 1 1 1.0\n1 1 1 1 1.0\n' > bigneg.dat-s
+          rc=0; timeout 300 ./sdpa_qd -ds bigneg.dat-s -o /tmp/bn.out -p param.sdpa >/dev/null 2>bn.err || rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL: -50000 LP block rc=$rc" >&2; cat bn.err >&2; exit 1; }
+          grep -q 'phase.value' /tmp/bn.out || { echo "FAIL: no phase printed" >&2; exit 1; }
+          # (b) m * SDP_nBlock past INT_MAX must die at the checked product with
+          # a diagnostic, never overflow into a negative allocation. Size-2
+          # blocks, deliberately: size-1 blocks are stored as LP and leave
+          # SDP_nBlock = 0.
+          python3 -c 'm,nb=4300,500000; f=open("ovf.dat-s","w"); f.write("%d\n%d\n"%(m,nb)); f.write(" ".join(["2"]*nb)+"\n"); f.write(" ".join(["1.0"]*m)+"\n"); f.write("0 1 1 1 1.0\n1 1 1 1 1.0\n")'
+          rc=0; timeout 300 ./sdpa_qd -ds ovf.dat-s -o /tmp/ov.out -p param.sdpa >/dev/null 2>ov.err || rc=$?
+          [ "$rc" -eq 1 ] || { echo "FAIL: oversized product rc=$rc, want 1" >&2; head -2 ov.err >&2; exit 1; }
+          grep -q 'allocation size overflow' ov.err || { echo "FAIL: wrong rejection reason: $(head -1 ov.err)" >&2; exit 1; }
+          # (c) mDIM = INT_MAX is rejected up front: downstream code allocates m+1
+          printf '2147483647\n1\n2\n1.0\n0 1 1 1 1.0\n' > intmax.dat-s
+          rc=0; ./sdpa_qd -ds intmax.dat-s -o /tmp/im.out -p param.sdpa >/dev/null 2>im.err || rc=$?
+          [ "$rc" -eq 1 ] || { echo "FAIL: mDIM=INT_MAX rc=$rc, want 1" >&2; exit 1; }
+          grep -q 'not representable once incremented' im.err || { echo "FAIL: wrong diagnostic: $(head -1 im.err)" >&2; exit 1; }
+          echo "-50000 LP block solves; 4300*500000 dies at the checked product; mDIM=INT_MAX rejected"
       - name: interleaved LP/SDP initial point, dense vs sparse (review2 finding 2)
         run: |
           set -e
           cd tests/initpoint_interleaved
           ../../sdpa_qd -ds prob.dat-s -is init_sparse.ini-s -o /tmp/ip_s.out -p ../../param.sdpa > /dev/null
           ../../sdpa_qd -ds prob.dat-s -id init_dense.ini   -o /tmp/ip_d.out -p ../../param.sdpa > /dev/null
-          grep -E 'Iteration|objValPrimal|objValDual|phase.value' /tmp/ip_s.out > /tmp/ip_s.sel
-          grep -E 'Iteration|objValPrimal|objValDual|phase.value' /tmp/ip_d.out > /tmp/ip_d.sel
+          # Compare the COMPLETE printed solution section, not a scalar
+          # shortlist (review2 §8: the offline check that proved this fix
+          # compared full solutions; CI keeps the stronger form).
+          sel() { grep -E 'objValPrimal|objValDual|phase\.value|Iteration =' "$1" || true
+                  awk '/^xVec *=/{f=1} f && !/time *=/' "$1"; }
+          sel /tmp/ip_s.out > /tmp/ip_s.sel
+          sel /tmp/ip_d.out > /tmp/ip_d.sel
           test -s /tmp/ip_s.sel && test -s /tmp/ip_d.sel
+          grep -q '{' /tmp/ip_s.sel || { echo "FAIL: no solution rows captured" >&2; exit 1; }
           diff /tmp/ip_s.sel /tmp/ip_d.sel \
             || { echo "FAIL: dense and sparse spellings of the same initial point diverged" >&2; exit 1; }
-          echo "dense == sparse: $(cat /tmp/ip_s.sel | tr '\n' ' ')"
+          echo "dense == sparse over the complete solution section ($(wc -l < /tmp/ip_s.sel) lines)"
+      - name: failed X/Z update rolls back to a PARTIAL result (review2 §8.2)
+        run: |
+          set -e
+          xz -dkf SDPLIB/data/control1.dat-s.xz
+          # control1 driven past qd precision (epsilonStar and epsilonDash
+          # 1e-45 -> 1e-60) breaks the updated-X/Z Cholesky at iteration 134,
+          # deterministically at any thread count. The step must be rolled
+          # back and the last valid iterate reported as PARTIAL, exit 3.
+          sed -E 's/^1.0E-45/1.0E-60/' param.sdpa > /tmp/hard.sdpa
+          rc=0; ./sdpa_qd -ds SDPLIB/data/control1.dat-s -o /tmp/hard.out -p /tmp/hard.sdpa > /dev/null 2>/tmp/hard.err || rc=$?
+          [ "$rc" -eq 3 ] || { echo "FAIL: expected rc=3 (partial), got $rc" >&2; cat /tmp/hard.err >&2; exit 1; }
+          grep -q 'solveStatus = PARTIAL' /tmp/hard.out || { echo "FAIL: no machine-readable PARTIAL status" >&2; exit 1; }
+          grep -q 'rolled back' /tmp/hard.out || { echo "FAIL: not the rollback path" >&2; exit 1; }
+          grep -q '^xVec' /tmp/hard.out || { echo "FAIL: the rolled-back valid iterate was not printed" >&2; exit 1; }
+          grep -q 'failureIteration = 134' /tmp/hard.out || { echo "FAIL: failureIteration wrong or missing" >&2; exit 1; }
+          # positive control: a clean solve still exits 0 with no PARTIAL marker
+          rc=0; ./sdpa_qd -ds example1.dat-s -o /tmp/ok.out -p param.sdpa > /dev/null || rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL: positive control rc=$rc, expected 0" >&2; exit 1; }
+          grep -q '^xVec' /tmp/ok.out
+          if grep -q 'solveStatus' /tmp/ok.out; then echo "FAIL: success run carries a solveStatus marker" >&2; exit 1; fi
+          echo "control1@1e-60: rc=3 PARTIAL (rollback) at iteration 134; example1: rc=0 clean"
       - name: 1-thread and 8-thread results are identical (determinism guarantee)
         # WAS: matrix.openmp == 'yes' -- that property does not exist in this matrix
         # (keys are name/flags/ld/gomp_min/conf), so it evaluated false and this step was
@@ -141,8 +192,13 @@ jobs:
         if: matrix.gomp_min == 1
         run: |
           set -euo pipefail
-          OMP_NUM_THREADS=1 ./sdpa_qd -ds tests/truss5.dat-s -o t1.out -p param.sdpa >/dev/null
-          OMP_NUM_THREADS=8 ./sdpa_qd -ds tests/truss5.dat-s -o t8.out -p param.sdpa >/dev/null
+          # truss5 from the tracked compressed SDPLIB copy (the uncompressed
+          # tests/ duplicate is gone); its second Schur panel enters the NT
+          # kernel at 80*64*64 and its NN share is 36.9%, so this actually
+          # exercises the threaded paths, unlike example1.
+          xz -dkf SDPLIB/data/truss5.dat-s.xz
+          OMP_NUM_THREADS=1 ./sdpa_qd -ds SDPLIB/data/truss5.dat-s -o t1.out -p param.sdpa >/dev/null
+          OMP_NUM_THREADS=8 ./sdpa_qd -ds SDPLIB/data/truss5.dat-s -o t8.out -p param.sdpa >/dev/null
           # Select the solution-bearing content rather than excluding timing lines: an
           # exclusion list has to know every timer format the solver can print and rots
           # silently when one is added. Two parts: the scalar convergence fields, and the
@@ -220,8 +276,9 @@ jobs:
       - name: identical output, or an uninitialised read has been found
         run: |
           set -u
-          for p in SDPLIB/data/control1 SDPLIB/data/theta1 SDPLIB/data/truss5 SDPLIB/data/arch0 SDPLIB/data/gpp100 SDPLIB/data/mcp100; do
-            [ -f "$p.dat-s.xz" ] && xz -dkf "$p.dat-s.xz"
+          # this fork tracks exactly these four SDPLIB fixtures (no gpp100/mcp100)
+          for p in SDPLIB/data/control1 SDPLIB/data/theta1 SDPLIB/data/truss5 SDPLIB/data/arch0; do
+            xz -dkf "$p.dat-s.xz"
           done
           sel() {   # same selector as the committed determinism step
             grep -E 'objValPrimal|objValDual|phase\.value|Iteration =|relative gap|feas\.error' "$1" || true
@@ -229,12 +286,15 @@ jobs:
           }
           : > z.sel; : > p.sel
           for d in example1 SDPLIB/data/control1 SDPLIB/data/theta1 SDPLIB/data/truss5 \
-                   SDPLIB/data/arch0 SDPLIB/data/gpp100 SDPLIB/data/mcp100; do
-            f="$d.dat-s"; [ -f "$f" ] || continue
-            OMP_NUM_THREADS=2 ./build-zero/sdpa_qd    -ds "$f" -o zo.out -p param.sdpa >/dev/null 2>&1
-            OMP_NUM_THREADS=2 ./build-pattern/sdpa_qd -ds "$f" -o po.out -p param.sdpa >/dev/null 2>&1
-            echo "== $f" >> z.sel; sel zo.out >> z.sel
-            echo "== $f" >> p.sel; sel po.out >> p.sel
+                   SDPLIB/data/arch0; do
+            f="$d.dat-s"; test -f "$f" || { echo "FAIL: scheduled problem $f missing" >&2; exit 1; }
+            # rc is captured and COMPARED: an intended PARTIAL (exit 3) must not
+            # kill the step, but a zero-vs-pattern rc disagreement is exactly
+            # the uninitialised-read signal this job exists to catch.
+            rz=0; OMP_NUM_THREADS=2 ./build-zero/sdpa_qd    -ds "$f" -o zo.out -p param.sdpa >/dev/null 2>&1 || rz=$?
+            rp=0; OMP_NUM_THREADS=2 ./build-pattern/sdpa_qd -ds "$f" -o po.out -p param.sdpa >/dev/null 2>&1 || rp=$?
+            echo "== $f rc=$rz" >> z.sel; sel zo.out >> z.sel
+            echo "== $f rc=$rp" >> p.sel; sel po.out >> p.sel
           done
           test -s z.sel || { echo "FAIL: selector matched nothing" >&2; exit 1; }
           grep -q '^  *{' z.sel || { echo "FAIL: no indented matrix rows captured" >&2; exit 1; }
@@ -328,11 +388,11 @@ jobs:
         run: |
           set -u
           : > san.log
-          # dd / gmp ship SDPLIB; truss5/truss6 are the problems that reach the SPOOLES
-          # ordering path (m > 100 and nBlock > 5). sdpa-qd-omp ships no SDPLIB, so it
-          # gets example1 only -- see the note in the review.
-          for p in SDPLIB/data/control1 SDPLIB/data/hinf1 SDPLIB/data/truss5 SDPLIB/data/truss6; do
-            [ -f "$p.dat-s.xz" ] && xz -dkf "$p.dat-s.xz"
+          # This fork tracks four compressed SDPLIB fixtures; the two that this
+          # job schedules are control1 (small, fast) and truss5 (reaches the
+          # SPOOLES ordering path: m > 100 and nBlock > 5).
+          for p in SDPLIB/data/control1 SDPLIB/data/truss5; do
+            xz -dkf "$p.dat-s.xz"
           done
           # Line 5 is the b-vector ("48, -8, 20"); the FIRST SPARSE RECORD is line 6.
           # Mutating line 5 made these cases fail for unrelated parse errors, so they were
@@ -350,33 +410,45 @@ jobs:
           # 9: the previous form logged rc=0 for every case, so a missing binary,
           # a timeout, or a wrong-reason rejection all passed). set -e is
           # neutralised by capturing in an if.
-          run() { echo "#### $1" >> san.log; shift
+          # One TSV record per case: name, observed rc, expected-rc pattern. The
+          # schedule is EXPLICIT -- asserted against a written-out case list
+          # below, never derived from whichever fixtures happen to exist.
+          run() { local name=$1 exp=$2; shift 2
+                  echo "#### case=$name" >> san.log
                   local rc=0; ( "$@" ) >> san.log 2>&1 || rc=$?
-                  echo "#### rc=$rc" >> san.log; }
-          run example1     ./sdpa_qd -ds example1.dat-s -o /tmp/e1  -p param.sdpa
-          for p in SDPLIB/data/control1 SDPLIB/data/hinf1 SDPLIB/data/truss5 SDPLIB/data/truss6; do
-            [ -f "$p.dat-s" ] && run "$(basename $p)" ./sdpa_qd -ds "$p.dat-s" -o /tmp/o -p param.sdpa
+                  printf '%s\t%s\t%s\n' "$name" "$rc" "$exp" >> cases.tsv; }
+          : > cases.tsv
+          run example1     0     ./sdpa_qd -ds example1.dat-s -o /tmp/e1  -p param.sdpa
+          # SDPLIB cases accept 0 or 3: whether a problem ends pdOPT or PARTIAL
+          # at default parameters is a property of the trajectory, and this
+          # instrumented -O1 build makes no trajectory promises. What this job
+          # asserts is no sanitizer report and no signal/timeout death.
+          for p in SDPLIB/data/control1 SDPLIB/data/truss5; do
+            test -f "$p.dat-s" || { echo "FAIL: scheduled fixture $p.dat-s missing" >&2; exit 1; }
+            run "$(basename $p)" '0|3' ./sdpa_qd -ds "$p.dat-s" -o /tmp/o -p param.sdpa
           done
-          run neg-index    ./sdpa_qd -ds neg-index.dat-s -o /tmp/n  -p param.sdpa
-          run comment-only timeout 120 ./sdpa_qd -ds cmt.dat-s -o /tmp/c -p param.sdpa
-          run truncated    ./sdpa_qd -ds trunc.dat-s -o /tmp/t  -p param.sdpa
+          run neg-index    1     ./sdpa_qd -ds neg-index.dat-s -o /tmp/n  -p param.sdpa
+          run comment-only 1     timeout 120 ./sdpa_qd -ds cmt.dat-s -o /tmp/c -p param.sdpa
+          run truncated    1     ./sdpa_qd -ds trunc.dat-s -o /tmp/t  -p param.sdpa
           # Grep the aggregate rather than trusting exit codes: the solver exits
           # non-zero on the malformed cases by design, so rc cannot distinguish
           # "rejected correctly" from "rejected after a sanitizer report".
           if grep -nE 'ERROR: AddressSanitizer|ERROR: LeakSanitizer|runtime error:' san.log; then
             echo "FAIL: sanitizer report(s) above" >&2; exit 1
           fi
-          # Per-case exit-code assertions (review2 finding 9). The valid case must
-          # be 0; malformed inputs must be the documented input status 1 -- not a
-          # signal, not a timeout, not merely nonzero; and the exact number of
-          # cases must have run, so a silently skipped case cannot pass.
-          codes=$(grep -c '^#### rc=' san.log)
-          [ "$codes" -eq 4 ] || { echo "FAIL: expected 4 cases, $codes ran" >&2; exit 1; }
-          awk '/^#### /{name=$2} /^#### rc=/{sub("rc=","",$2); print name, $2}' san.log > rc.tsv
-          grep -q '^example1 0$' rc.tsv || { echo "FAIL: valid case rc != 0" >&2; cat rc.tsv >&2; exit 1; }
-          for c in neg-index bad-block truncated; do
-            grep -q "^$c 1$" rc.tsv || { echo "FAIL: $c rc != 1 (input rejection)" >&2; cat rc.tsv >&2; exit 1; }
-          done
+          # Per-case exit-code assertions (review2 finding 9, repaired per §8.2:
+          # the first version expected 4 cases where 6 run, asserted a bad-block
+          # case this job never runs, and its awk name-capture rule also matched
+          # the rc lines, erasing every case name). Every scheduled case must
+          # run exactly once and return its expected code -- not a signal, not
+          # a timeout, not merely nonzero.
+          cat cases.tsv
+          awk -F'\t' 'BEGIN { n = split("example1 control1 truss5 neg-index comment-only truncated", w, " ") }
+               { seen[$1]++
+                 if ($2 !~ ("^(" $3 ")$")) { printf "FAIL: case %s rc=%s expected %s\n", $1, $2, $3; bad=1 } }
+               END { for (i=1;i<=n;i++) if (seen[w[i]] != 1) { printf "FAIL: case %s ran %d time(s), expected once\n", w[i], seen[w[i]]+0; bad=1 }
+                     if (NR != n) { printf "FAIL: %d records for %d scheduled cases\n", NR, n; bad=1 }
+                     exit bad }' cases.tsv
   warnings:
     # Promote the two warning classes this project has actually shipped bugs in:
     #   -Wreturn-type   -- rdpotf2_ fell off the end of a non-void function, and eight
