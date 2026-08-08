@@ -79,12 +79,12 @@ an m by k matrix, op(B) a k by n matrix and C an m by n matrix.
 /* MODIFIED, 2026-08-05: the NN case is dispatched to a threaded kernel in
    mpack/Rgemm_NN_omp.cpp.  See git log.
 
-   Only NN is split out.  That is a deliberate first increment, not a claim of
-   coverage: of this fork's Rgemm call sites, sdpa_linear.cpp:896/:989/:1081
-   (Lal::multiply) are NN, but Lal::tran_multiply is TN, Lal::multiply_tran is
-   NT, and Rpotrf's blocked trailing update is NT on the "Lower" path -- which
-   is the only path SDPA ever calls.  Those three cases still run the serial
-   bodies below.  Measured on thanos, NN is 100% of gpp100's Rgemm time and
+   NN and (since 2026-08-08) NT are split out; TN and TT still run the serial
+   bodies below.  Of this fork's Rgemm call sites, sdpa_linear.cpp:896/:989/
+   :1081 (Lal::multiply) are NN; Rpotrf's blocked trailing update is NT on the
+   "Lower" path -- the only path SDPA ever calls -- so before the NT kernel the
+   entire Schur-complement Cholesky ran serial; Lal::tran_multiply is TN and
+   nothing calls TT.  Measured on thanos, NN is 100% of gpp100's Rgemm time and
    97.6% of arch0's (together 89% of the published qd total), but only 36.9% of
    truss5's and it is 0% of the blocked Cholesky.  See
    patches/b5_notes/08_per_problem_gemm_census.md before extending or quoting

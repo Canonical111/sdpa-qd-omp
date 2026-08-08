@@ -92,7 +92,19 @@ iteration count, because at least one of the two trajectories was not a solution
 | arm | commit | what it is |
 |---|---|---|
 | `base_*` / `base*` | `3376c79` | the fork **at the commit whose tree carries the published `BENCHMARKS.md` byte-for-byte** — pre-port, pre-`63370f0` |
-| `head_*` / `head*` | `443799f` | current HEAD: `f177644` (threaded `Rgemm` NN, `--enable-openmp` fixed) plus `443799f` (threaded X/Z triangulars) |
+| `head_*` / `head*` | `443799f` | measurement tip: `f177644` (threaded `Rgemm` NN, `--enable-openmp` fixed) plus `443799f` (threaded X/Z triangulars) |
+
+> **Since these measurements** (`5e1cce0`, 2026-08-08): the `Rgemm` **NT** case is threaded as
+> well. NT is `Rpotrf`'s blocked trailing update, i.e. the Schur-complement Cholesky, which
+> every table on this page left serial. That changes **nothing measurable here** -- this set is
+> all m <= 208, where the Schur factorisation is a rounding error and NN carries 89% of the
+> Rgemm time -- and it changes everything for the inverse shape: on a bootstrap problem with
+> m = 2439 and 17 blocks all of order <= 30, where the m x m Cholesky IS the runtime, the NT
+> port measured **2.91x at 4 threads** (94.9 s -> 34.7 s for two iterations, CPU-seconds
+> unchanged), bit-identical on this page's 10-problem set at 1 and 8 threads. These tables were
+> NOT re-measured for `5e1cce0`: the change is gated off on every problem shown, and rerunning
+> would relabel identical numbers with a newer commit -- the kind of provenance blur this
+> document exists to prevent. |
 
 Note what this is *not*: the published tables' `pristine` column was **upstream `766eef3`**,
 a different comparison entirely. Nothing in this document is upstream. Every ratio here is
