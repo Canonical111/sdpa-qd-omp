@@ -1,0 +1,26 @@
+# NT-gemm probe on the reporting problem: m=2439, 17 blocks of order <= 30. v2, 2026-08-08.
+# SUPERSEDES the 2026-08-08 v1 single-sample table: v1 recorded golden 4t as '>120 (timeout)'.
+# That did not reproduce under repeats -- the serial build simply runs ~93 s wall at EITHER
+# thread count (cpu ~= wall: one core). v1's golden 94.85 s / nt 100.74 s cells carried
+# desktop-load noise; v1 also misstated the input size as 20076102 bytes.
+# machine=mac-m1max, mains power, ambient desktop load ~1-1.5 cores (VS Code, apfsd, Sophos AV).
+# input  = smoke_new_min.dat-s, 1900635 bytes,
+#          sha256 e454b96e2a8ec97721d81c40f340b2bb1c4e44593e3fe0de23abf1da6488b61e
+# params = param_prod.sdpa (sha256 b16a31378e269ac4192f8a246dac06ab522be0e185f7672d6869eeca77b8538e)
+#          with maxIteration 300 -> 2; derived file sha256 c3100c05bb8402d3379e190be60e7226a49f4f250abf90cccb9151c4a3b59c1b
+# golden = commit 32a080c (pre-NT tip) rebuilt 2026-08-08 with g++-16 -O2 -funroll-all-loops
+#          -fopenmp; the original released 32a080c binary (md5 prefix 15f321d12fff) is no
+#          longer extant, so its full hash is unrecoverable -- this rebuild stands in for it.
+# nt     = the current candidate build (NT kernel + review2-fix batch).
+# command: /usr/bin/time -p env OMP_NUM_THREADS=<t> timeout <to> <bin> -ds smoke_new_min.dat-s -o <out> -p param_iter2.sdpa
+# sol_sha256 = sha256 of the complete printed solution section (xVec onward, timers dropped):
+# IDENTICAL across all 8 runs -- golden and nt, 1 and 4 threads.
+binary	md5	threads	repeat	wall_s	cpu_s	status	sol_sha256
+golden	7a833bdfa83db48369ccc8bb6ed74dfd	1	1	93.46	92.73	ok	4cdea9636a958b10c2bf2bb2ba5959cc1063e9d8d3aad44aa0faad5fc30d54d5
+golden	7a833bdfa83db48369ccc8bb6ed74dfd	1	2	93.03	92.69	ok	4cdea9636a958b10c2bf2bb2ba5959cc1063e9d8d3aad44aa0faad5fc30d54d5
+golden	7a833bdfa83db48369ccc8bb6ed74dfd	4	1	93.53	93.76	ok	4cdea9636a958b10c2bf2bb2ba5959cc1063e9d8d3aad44aa0faad5fc30d54d5
+golden	7a833bdfa83db48369ccc8bb6ed74dfd	4	2	92.17	93.4	ok	4cdea9636a958b10c2bf2bb2ba5959cc1063e9d8d3aad44aa0faad5fc30d54d5
+nt	f9206044e4a14dd0c3e6beffe5368eee	1	1	92.71	92.34	ok	4cdea9636a958b10c2bf2bb2ba5959cc1063e9d8d3aad44aa0faad5fc30d54d5
+nt	f9206044e4a14dd0c3e6beffe5368eee	1	2	92.58	92.34	ok	4cdea9636a958b10c2bf2bb2ba5959cc1063e9d8d3aad44aa0faad5fc30d54d5
+nt	f9206044e4a14dd0c3e6beffe5368eee	4	1	33.99	94.74	ok	4cdea9636a958b10c2bf2bb2ba5959cc1063e9d8d3aad44aa0faad5fc30d54d5
+nt	f9206044e4a14dd0c3e6beffe5368eee	4	2	34.27	95.15	ok	4cdea9636a958b10c2bf2bb2ba5959cc1063e9d8d3aad44aa0faad5fc30d54d5

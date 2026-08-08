@@ -1,0 +1,11 @@
+# Solver-level NT spot check (review2 §8.4): released binary vs current candidate on the
+# two benchmark-page problems whose Rpotrf panels pass the NT work gate. Identity of the
+# complete printed solution section (xVec onward, timers dropped) at printed precision.
+# machine=mac-m1max, 2026-08-08, OMP_NUM_THREADS=4, param.sdpa of the qd fork.
+# released = published main build (the binary installed as ~/.local/bin/sdpa_qd);
+# candidate = review2-fix batch build. Same iterations, same sha256, both problems.
+problem	binary	md5	threads	rc	iters	solution_sha256
+arch0	released	fe7ff6c62c46c20766eac0b371b66ef8	4	0	101	0208f5d89b3f4a02ebc00d9ded1f3c4e8a1a004172a166c59fdaa7cd7a1f1199
+arch0	candidate	f9206044e4a14dd0c3e6beffe5368eee	4	0	101	0208f5d89b3f4a02ebc00d9ded1f3c4e8a1a004172a166c59fdaa7cd7a1f1199
+truss5	released	fe7ff6c62c46c20766eac0b371b66ef8	4	0	63	c7d36135df0949a9b9cfdb5162004daef6444a310eec490f88df24a148c62a4c
+truss5	candidate	f9206044e4a14dd0c3e6beffe5368eee	4	0	63	c7d36135df0949a9b9cfdb5162004daef6444a310eec490f88df24a148c62a4c
