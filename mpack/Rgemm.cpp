@@ -87,7 +87,7 @@ an m by k matrix, op(B) a k by n matrix and C an m by n matrix.
    nothing calls TT.  Measured on thanos, NN is 100% of gpp100's Rgemm time and
    97.6% of arch0's (together 89% of the published qd total), but only 36.9% of
    truss5's and it is 0% of the blocked Cholesky.  See
-   patches/b5_notes/08_per_problem_gemm_census.md before extending or quoting
+   the per-problem gemm census quoted in BENCHMARKS.md (recipe repo: results/qd_* tables) before extending or quoting
    this.
 
    The declaration is kept file-local rather than added to mblas_qd.h on

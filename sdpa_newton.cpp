@@ -1360,8 +1360,9 @@ void Newton::compute_bMat_dense_SDP(InputData &inputData, Solutions &currentPt, 
                 }
             }
         } else {
-            // No OpenMP construct at all here, so an inner Rgemm on the NN path keeps its
-            // own threading (mpack/Rgemm_NN_omp.cpp). Rdot, and Rgemm's TN/NT/TT cases,
+            // No OpenMP construct at all here, so an inner Rgemm on the NN or NT
+            // path keeps its own threading (mpack/Rgemm_NN_omp.cpp and, since
+            // 2026-08-08, mpack/Rgemm_NT_omp.cpp). Rdot and Rgemm's TN/TT cases
             // have no threading in this fork -- there is nothing to keep for those.
             DenseMatrix priv1, priv2;
             bool owns_priv = false;

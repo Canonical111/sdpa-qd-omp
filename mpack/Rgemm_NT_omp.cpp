@@ -72,7 +72,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * -- the only path SDPA ever calls -- is Rgemm("No transpose","Transpose"),
  * and until this file that case ran the serial body.  For solver runs in the
  * published qd benchmark set that did not matter: NN is 100% of gpp100's Rgemm
- * time and 97.6% of arch0's (patches/b5_notes/08_per_problem_gemm_census.md).
+ * time and 97.6% of arch0's (the per-problem gemm census quoted in BENCHMARKS.md (recipe repo: results/qd_* tables)).
  * It matters enormously for the inverse shape -- many constraints, small
  * blocks -- where the m x m Schur complement Cholesky IS the runtime and its
  * trailing update is this kernel.  First observed on a bootstrap problem with

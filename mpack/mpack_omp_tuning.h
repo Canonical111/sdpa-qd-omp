@@ -1,12 +1,14 @@
 #ifndef MPACK_OMP_TUNING_H
 #define MPACK_OMP_TUNING_H
 
-/* NEW FILE (2026-08-05), for the threaded Rgemm NN kernel in this fork.
+/* NEW FILE (2026-08-05), originally for the threaded Rgemm NN kernel; the NT
+ * kernel (2026-08-08, mpack/Rgemm_NT_omp.cpp) shares the same two gemm gate
+ * macros, and this fork ALSO carries the B3 triangulars (mpack/Rtrsm_omp.cpp,
+ * mpack/Rtrmm_omp.cpp) whose gates live further down this file.
  *
  * This is deliberately NOT a copy of the dd fork's mplapack/mplapack_omp_tuning.h.
- * That header is 230 lines and calibrates Rtrsm_omp / Rtrmm_omp / Rsyrk_omp /
- * Rpotrf2, none of which exist here -- this fork's mpack/ has no threaded kernel
- * other than the Rgemm NN one. Importing the rest would import ~200 lines of dd
+ * That header additionally calibrates Rsyrk_omp / Rpotrf2, which do not exist
+ * here. Importing the rest would import ~200 lines of dd
  * hardware tables describing code that is not in this tree, plus a
  * "generator refuses a stale header" version contract that has no generator on
  * this side. Only the two macros the gemm gate actually reads are carried over,
@@ -36,7 +38,7 @@
    yet m*n*k = 1000 is rejected by 20000. Carried over unchanged, dd's constant
    rejects 100% of control1's Rgemm (41.9% of that problem's wall) and 100% of
    truss5's NN bucket (13266 calls, 9.2% of wall). See
-   patches/b5_notes/08_per_problem_gemm_census.md.
+   the per-problem gemm census quoted in BENCHMARKS.md (recipe repo: results/qd_* tables).
 
    MEASURED, 2026-08-05, thanos (EPYC 7232P, 8 physical cores, SMT2, schedutil).
    Method, and why it is not the obvious one: comparing an -fopenmp build of this
