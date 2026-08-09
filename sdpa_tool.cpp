@@ -26,14 +26,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 /* MODIFIED from upstream (GPLv2 2a notice), 2026-07-31: rGetUseTime is elapsed wall time (steady_clock), not process CPU time. See git log. */
 #include <sdpa_tool.h>
 #include <chrono>
-#include <sys/times.h>
-#include <sys/time.h>
-#include <time.h>
-
-#include <unistd.h>
-#ifndef CLK_TCK
-#define  CLK_TCK  sysconf(_SC_CLK_TCK)
-#endif
 
 namespace sdpa {
 
@@ -54,20 +46,6 @@ double Time::rGetUseTime()
   // monotonic, so a clock adjustment cannot corrupt an interval.
   const auto now = std::chrono::steady_clock::now().time_since_epoch();
   return std::chrono::duration<double>(now).count();
-}
-
-void Time::rSetTimeVal(struct timeval& targetVal)
-{
-  static struct timezone tz;
-  gettimeofday(&targetVal,&tz);
-}
-
-double Time::rGetRealTime(const struct timeval& start,
-			   const struct timeval& end)
-{
-  const long int second = end.tv_sec - start.tv_sec;
-  const long int usecond = end.tv_usec - start.tv_usec;
-  return ((double)second) + ((double)usecond)*(1.0e-6);
 }
 
 }

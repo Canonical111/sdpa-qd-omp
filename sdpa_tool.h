@@ -72,16 +72,9 @@ class Time
 {
 public:
   static double rGetUseTime();
-  static void rSetTimeVal(struct timeval & targetVal);
-  static double rGetRealTime(const struct timeval & start,
-			     const struct timeval & end);
 };
 
-// Elapsed wall time on every fork (steady_clock via rGetUseTime): the old
-// "#if 1 count time with process time / #else real time" alternative was
-// removed 2026-08-09 (review2 §17.5) -- its label had been FALSE since the
-// clock fix (rGetUseTime stopped being process time), and its disabled arm
-// passed a struct timeval that never matched the live signature anyway.
+// Elapsed wall time (steady_clock, via rGetUseTime).
 #define TimeStart(START__) \
    static double START__; START__ = Time::rGetUseTime()
 #define TimeEnd(END__) \

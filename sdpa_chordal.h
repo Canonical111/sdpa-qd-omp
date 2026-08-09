@@ -41,7 +41,6 @@ extern "C" {
 #include "IV.h"
 #include "SymbFac.h"
 
-#define TIMES_PER_SECOND CLK_TCK
 
 #ifdef __cplusplus
 }

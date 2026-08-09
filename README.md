@@ -44,8 +44,11 @@ binaries are the ones built by this README's own instructions from a fresh clone
 tables, methodology and raw per-repeat data: [BENCHMARKS.md](BENCHMARKS.md) and
 [`bench/`](bench/).
 
-Every modified file carries an in-file, dated change notice (GPLv2 §2a): `sdpa_tool.cpp`,
-`sdpa_newton.cpp`, `sdpa_parts.cpp`.
+Every modified source file carries an in-file, dated change notice — GPLv2 §2a for the
+SDPA sources, LGPL-3 §4a for `mpack/Rgemm_NT_omp.cpp`, which is LGPL-3-only like the MPACK
+file it was split from. The complete, always-current list is
+`git diff --stat <upstream-base>..HEAD` — an enumeration here went stale twice and is
+deliberately not repeated.
 
 Build (QD library required, e.g. `libqd-dev`). Either pass `--enable-openmp`, which since
 patch 4 really does add a working OpenMP flag and fails the configure if it cannot find
