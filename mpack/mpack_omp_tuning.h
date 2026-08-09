@@ -1,7 +1,12 @@
 #ifndef MPACK_OMP_TUNING_H
 #define MPACK_OMP_TUNING_H
 
-/* NEW FILE (2026-08-05), originally for the threaded Rgemm NN kernel; the NT
+/* New file added by this fork, 2026-08-04. It lives in the bundled MPACK tree and is offered
+   under the same GNU Lesser General Public License version 3 terms as the files around it.
+   No upstream file corresponds to it; the notices below record its history. */
+
+/* NEW FILE (LGPL-3 4a; this file is LGPL-3 like the MPACK tree it lives in), 2026-08-05,
+   originally for the threaded Rgemm NN kernel; the NT
  * kernel (2026-08-08, mpack/Rgemm_NT_omp.cpp) shares the same two gemm gate
  * macros, and this fork ALSO carries the B3 triangulars (mpack/Rtrsm_omp.cpp,
  * mpack/Rtrmm_omp.cpp) whose gates live further down this file.
