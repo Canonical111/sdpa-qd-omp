@@ -99,7 +99,7 @@ iteration count, because at least one of the two trajectories was not a solution
 > every table on this page left serial. The NT work gate (shared with NN, `m*n*k >= 512`)
 > **does admit** panels on this page's problems -- arch0's second panel alone is
 > `46*64*64 = 188416` -- so the correct statement is not "gated off" but *measured unchanged*:
-> at the current tip, arch0 and truss5 produce printed solutions IDENTICAL to the released
+> at the current tip, `arch0`, `truss5` produce printed solutions IDENTICAL to the released
 > binary's (same iterations, same full solution section; the raw record is retained in
 > `results/qd_nt_solution_identity.tsv` in the recipe repository, as
 > `bench/qd_nt_solution_identity.tsv` in the solver repository). The Schur phase is simply a
@@ -111,19 +111,21 @@ iteration count, because at least one of the two trajectories was not a solution
 > cell, full binary/input/parameter hashes recorded in `results/qd_nt_m2439_probe.tsv`
 > (recipe repository) / `bench/qd_nt_m2439_probe.tsv` (solver repository) -- the pre-NT build runs
 > ~93 s wall at 1 AND 4 threads with CPU ~= wall: one core, however many are offered. The
-> NT build runs ~93 s at 1 thread and ~34 s at 4. Old-versus-new at 4 threads is therefore
-> **~2.7x, measured** (92.85 / 34.13 s on medians), and the NT build's own 1-to-4-thread
-> scaling is the same ~2.7x, as it must be when the old build ignores threads. CPU-seconds
-> are flat (92-95 s) across all eight runs -- same arithmetic, spread across cores -- and
-> the printed solution section is byte-identical across all eight (one sha256). An earlier
+> NT build runs 93 s at 1 thread and 34 s at 4. Old-versus-new at 4 threads is therefore
+> **2.72x, measured** (92.85 / 34.13 s on medians), and the NT build's own 1-to-4-thread
+> scaling is 2.71x, as it must be when the old build ignores threads. CPU-seconds
+> are flat (92-95 s) across all 8 runs -- same arithmetic, spread across cores -- and
+> the printed solution section is byte-identical across all 8 (one sha256). An earlier
 > one-sample version of this table reported the old build's 4-thread run as a 120 s timeout
 > and old-versus-new as a ">3.5x" bound; neither survived repeats, and the current table
 > supersedes both claims.
 >
 > Two precision statements, kept distinct on purpose: the *kernel* is bit-identical to the
-> serial body by construction and by its own raw-limb test -- 405 NT cases crossing the
-> work gate both ways, with padded leading dimensions, every beta special case and
-> structural zeros, at 1/4/8 threads (`patches/qd_nt_kernel_check.cpp`; results in
+> serial body by construction and by its own raw-limb test -- 135 NT cases at each of
+> 1/4/8 threads (74 with the production gate open, 61 deliberately
+> below it), with padded leading dimensions, every beta special case and 28960 structural
+> zeros placed in B, every one memcmp-identical (`bench/qd_nt_kernel_check.cpp`, also
+> `patches/qd_nt_kernel_check.cpp` in the recipe repository; results in
 > `results/qd_nt_kernel_identity.tsv` / `bench/qd_nt_kernel_identity.tsv`). B5's earlier
 > kernel test covered the NN case only and predates the NT commit, so it is not cited for
 > NT. The *solver-level* checks above compare the complete printed solution section, which
