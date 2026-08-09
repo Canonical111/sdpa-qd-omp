@@ -8,7 +8,10 @@
  * branch (git show 5e1cce0^:mpack/Rgemm.cpp) -- and requires every qd_real
  * limb of C to be memcmp-identical, with the padding rows of C untouched.
  *
- * Case axes: m/n/k from 1 to 129 (crossing the production gate both ways),
+ * Case axes (review2 §15.5 corrected the earlier "m/n/k from 1 to 129"):
+ * m spans all of {1,2,3,5,17,33,64,65,129}, n the strided subset
+ * {1,3,17,64,129}, k the strided subset {1,5,64} -- 135 combinations, still
+ * crossing the production gate in both directions on every axis --
  * leading-dimension padding 0/3/7, alpha including 0 and negative, beta in
  * {0, 1, 0.37, -1} (0 and 1 are special-cased in the scaling pass), and
  * structural zeros placed in B by an INDEPENDENT predicate to exercise the
@@ -23,10 +26,13 @@
  *   - a write into C's padding rows is detected;
  *   - at least one zero was actually placed in B across the run, counted.
  *
- * The gate column reports the EXACT production predicate from
+ * The gate column reports the production predicate's two DATA terms from
  * mpack_omp_tuning.h -- m*n*k >= MPACK_OMP_MIN_GEMM_WORK AND
  * n >= MPACK_OMP_MIN_GEMM_WIDTH -- not the work term alone (v1 labelled 18
- * n=1 cases "gate open" although production keeps them serial).
+ * n=1 cases "gate open" although production keeps them serial). Production's
+ * third condition, !omp_in_parallel(), is environmental rather than
+ * data-dependent; this harness calls the kernel from top level, where it is
+ * always true, so the column intentionally omits it (review2 §15.5).
  *
  * Build (from the recipe repo root; FORK = fixes/sdpa-qd-omp, QD = the qd
  * install the fork was built against):
