@@ -64,7 +64,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/* NEW FILE (2026-08-05), split out of mpack/Rgemm.cpp and threaded. See git log.
+/* NEW FILE in this fork (LGPL-3 4a notice; this MPACK file is LGPL-3-only) (2026-08-05), split out of mpack/Rgemm.cpp and threaded. See git log.
  *
  * WHAT THIS IS.  The body below is the "Form C := alpha*A*B + beta*C" branch of
  * mpack/Rgemm.cpp -- netlib dgemm's NN case, including its zero-skip on B --

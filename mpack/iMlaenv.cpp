@@ -64,7 +64,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-04: null-terminate the Mlaname buffer; block sizes were read from uninitialised stack. See git log. */
+/* MODIFIED from upstream (LGPL-3 4a notice; this MPACK file is LGPL-3-only), 2026-08-04: null-terminate the Mlaname buffer; block sizes were read from uninitialised stack. See git log. */
 #include <mblas_qd.h>
 #include <mlapack_qd.h>
 #include <string.h>

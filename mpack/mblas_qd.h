@@ -30,7 +30,7 @@
 /* this is a subset of mpack for SDPA-GMP only */
 /* http://mplapack.sourceforge.net/ */
 
-/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-09 (notice added; changes date from the threading work): declares the fork's threaded kernels (Rgemm_NN_omp, Rgemm_NT_omp, Rtrmm_omp, Rtrsm_omp). See git log. */
+/* MODIFIED from upstream (LGPL-3 4a notice; this MPACK file is LGPL-3-only), 2026-08-09 (notice added; changes date from the threading work): declares the fork's threaded kernels (Rgemm_NN_omp, Rgemm_NT_omp, Rtrmm_omp, Rtrsm_omp). See git log. */
 #ifndef _MBLAS_QD_H_
 #define _MBLAS_QD_H_
 

@@ -74,7 +74,7 @@ non-unit,  upper or lower triangular matrix  and  op( A )  is one  of
 The matrix X is overwritten on B.
 */
 
-/* NEW FILE (2026-08-05), ported from the dd fork's mplapack/Rtrsm_omp.cpp (bcb7801, "B3").
+/* NEW FILE in this fork (LGPL-3 4a notice; this MPACK file is LGPL-3-only) (2026-08-05), ported from the dd fork's mplapack/Rtrsm_omp.cpp (bcb7801, "B3").
  * Column-parallel Rtrsm for the SINGLE case this fork's solver uses --
  * Left / Lower / NoTranspose, i.e. Lal::getInvLowTriangularMatrix at
  * sdpa_linear.cpp:446 -- and every other case, plus every sub-threshold call, is

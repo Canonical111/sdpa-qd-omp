@@ -73,7 +73,7 @@ non-unit, upper or lower triangular matrix and op(A) is one  of
  op(A) = A  or op(A) = A'.
 */
 
-/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-04: added zero-skip to the alpha*A'*B dot-product branches (netlib dtrmm has no such skip; sdpa only ever passes a triangular B here). See git log. */
+/* MODIFIED from upstream (LGPL-3 4a notice; this MPACK file is LGPL-3-only), 2026-08-04: added zero-skip to the alpha*A'*B dot-product branches (netlib dtrmm has no such skip; sdpa only ever passes a triangular B here). See git log. */
 #include <mblas_qd.h>
 
 void

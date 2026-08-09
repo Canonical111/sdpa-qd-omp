@@ -73,7 +73,7 @@ non-unit, upper or lower triangular matrix and op(A) is one  of
  op(A) = A  or op(A) = A'.
 */
 
-/* NEW FILE (2026-08-05), ported from the dd fork's mplapack/Rtrmm_omp.cpp (bcb7801, "B3").
+/* NEW FILE in this fork (LGPL-3 4a notice; this MPACK file is LGPL-3-only) (2026-08-05), ported from the dd fork's mplapack/Rtrmm_omp.cpp (bcb7801, "B3").
  * Column-parallel Rtrmm for the SINGLE case this fork's solver uses --
  * Left / Lower / Transpose, i.e. forming Z^-1 = L**T * L in Jal::getInvCholAndInv
  * at sdpa_jordan.cpp:190 -- and every other case, plus every sub-threshold call,
