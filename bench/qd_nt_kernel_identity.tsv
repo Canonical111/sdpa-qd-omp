@@ -14,7 +14,7 @@
 # Kernel object: fixes/sdpa-qd-omp/sdpa_qd-Rgemm_NT_omp.o (md5 8477013e5786ffcdae5ac7cddbb349db)
 #          from qd fork tree 0fcae9d
 # Compiler: g++-16 (Homebrew GCC 16.1.0) 16.1.0; machine: mac-m1max
-# meta cases_per_thread=135 thread_counts=1,4,8 gate_open=74 gate_closed=61 zeros_read_region=26911 harness_md5=ff04f068f4e17ff9315091ea9897c83d
+# meta cases_per_thread=135 thread_counts=1,4,8 gate_open=74 gate_closed=61 zeros_read_region=26911 harness_md5=506f040665e7b581b9f54cf7646ad250
 # gate_open = the production predicate's two DATA terms: m*n*k >= MPACK_OMP_MIN_GEMM_WORK
 #          (512) AND n >= MPACK_OMP_MIN_GEMM_WIDTH (2), recomputed by the generator from
 #          the recorded dimensions and the fork's tuning header. Production's third

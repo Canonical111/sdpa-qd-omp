@@ -1,3 +1,7 @@
+/* New file added by this fork, 2026-08-09: a test harness, not part of the solver build. It
+   links the fork's own Rgemm_NT_omp object, which is part of the bundled MPACK tree, and is
+   offered under the same GNU Lesser General Public License version 3 terms. No upstream file
+   corresponds to it; the notice below records its history. */
 /* Raw-limb identity check for the threaded NT gemm kernel (review2 §8.4, §10.1).
  *
  * B5's kernel test predates the NT commit and covered the NN kernel only, so
@@ -43,7 +47,7 @@
  * Output: one TSV row per case on stdout; exits nonzero on any limb mismatch,
  * padding clobber, or failed self-test.
  */
-/* NEW FILE in this fork (notice added 2026-08-09): test harness, not part of the solver build. It links the fork's own Rgemm_NT_omp object against the serial NT body and requires raw-limb identity. See the header comment below and git log. */
+/* NEW FILE in this fork (LGPL-3 4a; notice added 2026-08-09): test harness, not part of the solver build. It links the fork's own Rgemm_NT_omp object against the serial NT body and requires raw-limb identity. See the header comment below and git log. */
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
