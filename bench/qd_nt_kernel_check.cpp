@@ -196,7 +196,8 @@ int main()
 	for (int j = 0; j < n && pad_ok; j++)
 	    for (int i = m; i < ldc; i++)
 		if (Cp[i + (size_t)j * ldc] != qd_real(SENTINEL)) { pad_ok = 0; break; }
-	/* the EXACT production predicate, both terms */
+	/* the production predicate's two data terms; !omp_in_parallel() is
+	   environmental and always true here -- see the header comment */
 	int gate = ((double)m * (double)n * (double)k >= MPACK_OMP_MIN_GEMM_WORK
 		    && n >= MPACK_OMP_MIN_GEMM_WIDTH);
 	cases++; total_zeros += zeros; gated_on += gate;
