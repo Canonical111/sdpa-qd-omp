@@ -76,7 +76,7 @@ an m by k matrix, op(B) a k by n matrix and C an m by n matrix.
 
 #include <mblas_qd.h>
 
-/* MODIFIED, 2026-08-05: the NN case is dispatched to a threaded kernel in
+/* MODIFIED from upstream (LGPL-3 4a notice; this MPACK file is LGPL-3-only), 2026-08-05: the NN case is dispatched to a threaded kernel in
    mpack/Rgemm_NN_omp.cpp.  See git log.
 
    NN and (since 2026-08-08) NT are split out; TN and TT still run the serial

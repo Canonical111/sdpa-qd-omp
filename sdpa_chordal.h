@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
   rsdpa_chordal.h
 -----------------------------------------*/
 
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-09: the never-used TIMES_PER_SECOND define was removed with the dead timer API. See git log. */
 #ifndef __sdpa_chordal_h__
 #define __sdpa_chordal_h__
 

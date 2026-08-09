@@ -43,6 +43,7 @@
  * Output: one TSV row per case on stdout; exits nonzero on any limb mismatch,
  * padding clobber, or failed self-test.
  */
+/* NEW FILE in this fork (notice added 2026-08-09): test harness, not part of the solver build. It links the fork's own Rgemm_NT_omp object against the serial NT body and requires raw-limb identity. See the header comment below and git log. */
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>

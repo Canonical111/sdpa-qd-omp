@@ -30,7 +30,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 #include <sdpa_right.h>
 
 #include <iostream>
-#include <sys/time.h>
 #include <string>
 #include <cstdlib>
 
@@ -38,24 +37,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
 
 namespace sdpa {
 
-#if 1
 #define rMessage(message) \
 cout << message << " :: line " << __LINE__ \
   << " in " << __FILE__ << endl
-#else
-#define rMessage(message)
-#endif
 
 #define rError(message) \
 cout << message << " :: line " << __LINE__ \
   << " in " << __FILE__ << endl; \
 exit(EXIT_FAILURE)
 
-#if 0
-#define rNewCheck() rMessage("new invoked");
-#else
 #define rNewCheck() ;
-#endif
 
 #define REVERSE_PRIMAL_DUAL 1
 

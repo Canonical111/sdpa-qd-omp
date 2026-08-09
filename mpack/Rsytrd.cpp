@@ -64,6 +64,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-09 (notice added; change dates from the fork's warnings work): ldwork initialised at declaration -- GCC's -Wmaybe-uninitialized flags the blocked path where it is set only under a branch. See git log. */
 #include <mblas_qd.h>
 #include <mlapack_qd.h>
 
