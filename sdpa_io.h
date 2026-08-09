@@ -51,12 +51,7 @@ public:
 		   int nBlock, int* blockStruct, int* blockType, int* blockNumber,
 		   InputData& inputData, bool isDataSparse);
 
-  /* The second 2008 'not use' overload (the NonZeroCount reader) was removed
-     2026-08-09.  Its implementation went with the disabled block deleted on
-     2026-08-08; this declaration outlived it and referred to nothing. */
 
-  /* The 2008 'not use' overload (InputData + long position) was removed
-     2026-08-08: never called by any fork, unchecked legacy indexing (review2). */
 
   // 2008/02/27 kazuhide nakata   
   // without LP_ANonZeroCount

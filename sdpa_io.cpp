@@ -778,7 +778,6 @@ void IO::read(FILE* fpData, DenseLinearSpace& xMat,
 
 // 2008/02/27 kazuhide nakata
 // without LP_ANonZeroCount
-#if 1
 void IO::read(FILE* fpData, int m,
 	      int SDP_nBlock,
               int* SDP_blockStruct,
@@ -818,7 +817,6 @@ void IO::read(FILE* fpData, int m,
              position, isDataSparse);
   //   rMessage(" C and A have been read");
 }
-#endif
 
   // 2008/02/27 kazuhide nakata   
   // without LP_ANonZeroCount
@@ -1459,7 +1457,6 @@ void IO::printLastInfo(int pIteration,
     param.display(fpout);
     com.display(fpout);
 
-    #if 1
     #if REVERSE_PRIMAL_DUAL
     fprintf(fpout,"xVec = \n");
     currentPt.yVec.display(fpout,-1.0);
@@ -1469,7 +1466,6 @@ void IO::printLastInfo(int pIteration,
     currentPt.xMat.display(fpout);
     #else
     currentPt.display(fpout);
-    #endif
     #endif
   }
 }
@@ -1697,7 +1693,6 @@ void IO::printLastInfo(int pIteration,
     param.display(fpout);
     com.display(fpout);
 
-    #if 1
     #if REVERSE_PRIMAL_DUAL
     fprintf(fpout,"xVec = \n");
     currentPt.yVec.display(fpout,-1.0);
@@ -1720,7 +1715,6 @@ void IO::printLastInfo(int pIteration,
     displayDenseLinarSpaceLast(currentPt.zMat,
 							   nBlock, blockStruct, blockType, blockNumber,
 							   fpout);
-    #endif
     #endif
   }
 }
