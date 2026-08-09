@@ -64,9 +64,19 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-/* MODIFIED from upstream (GPLv2 2a notice), 2026-08-08: new file. Threaded NT
-   case of Rgemm, split out of mpack/Rgemm.cpp the same way Rgemm_NN_omp was.
-   See git log. */
+/* MODIFICATION NOTICE (LGPL-3 section 4a; this file is LGPL-3-only, NOT the
+   GPLv2 the SDPA sources around it carry -- the earlier notice here said
+   "GPLv2 2a" by copy-paste from the solver files and named the wrong licence),
+   2026-08-08: new file. Threaded NT case of Rgemm, split out of
+   mpack/Rgemm.cpp the same way Rgemm_NN_omp was. See git log.
+
+   The notices ABOVE this line are a verbatim copy of mpack/Rgemm.cpp's, and
+   are byte-identical to it including trailing whitespace. That whitespace is
+   deliberate fidelity to the copied copyright and licence text, not an
+   oversight: do not "clean" it, because editing a copyright notice to tidy
+   whitespace is exactly the kind of silent alteration the notice exists to
+   prevent. (Rgemm_NN_omp.cpp's copy was tidied before this was understood;
+   that is the inconsistent one.) */
 
 /* WHY THIS FILE EXISTS.  Rpotrf's blocked trailing update on the "Lower" path
  * -- the only path SDPA ever calls -- is Rgemm("No transpose","Transpose"),

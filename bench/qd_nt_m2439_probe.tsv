@@ -13,6 +13,8 @@
 #          longer extant, so its full hash is unrecoverable -- this rebuild stands in for it.
 # nt     = the current candidate build (NT kernel + review2-fix batch).
 # command: /usr/bin/time -p env OMP_NUM_THREADS=<t> timeout <to> <bin> -ds smoke_new_min.dat-s -o <out> -p param_iter2.sdpa
+# meta problem_sha256=e454b96e2a8ec97721d81c40f340b2bb1c4e44593e3fe0de23abf1da6488b61e param_sha256=c3100c05bb8402d3379e190be60e7226a49f4f250abf90cccb9151c4a3b59c1b source_param_sha256=b16a31378e269ac4192f8a246dac06ab522be0e185f7672d6869eeca77b8538e iterations=2 m=2439 nblocks=17 max_block_order=30 machine=mac-m1max
+# (the line above is the machine-readable form of the prose above it: review2 §13.2 -- metadata that the generator cannot parse is metadata it cannot validate)
 # sol_sha256 = sha256 of the complete printed solution section (xVec onward, timers dropped):
 # IDENTICAL across all 8 runs -- golden and nt, 1 and 4 threads.
 binary	md5	threads	repeat	wall_s	cpu_s	status	sol_sha256

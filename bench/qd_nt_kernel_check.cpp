@@ -161,8 +161,19 @@ int main()
 	std::vector<qd_real> A((size_t)lda * k), B((size_t)ldb * k),
 	    C0((size_t)ldc * n), Cs, Cp;
 	for (auto &x : A) x = qd_real(lcg());
+	/* Count only the region the kernel actually READS: B is ldb x k but the
+	   loop touches B[j + l*ldb] for j < n, so zeros in the ldb-n padding rows
+	   are never seen by the zero-skip branch and must not be claimed as
+	   coverage (review2 §13.2 measured 2049 of the previously reported 28960
+	   as padding). Padding is still filled, so an out-of-range read would
+	   change the result. */
 	int zeros = 0;
-	for (auto &x : B) { if (pick_zero()) { x = qd_real(0.0); zeros++; } else x = qd_real(lcg()); }
+	for (mpackint l = 0; l < k; l++)
+	    for (mpackint i = 0; i < ldb; i++) {
+		bool z = pick_zero();
+		B[i + (size_t)l * ldb] = z ? qd_real(0.0) : qd_real(lcg());
+		if (z && i < n) zeros++;
+	    }
 	for (auto &x : C0) x = qd_real(lcg());
 	/* mark the pad rows so an out-of-range write is caught, not missed */
 	for (int j = 0; j < n; j++)

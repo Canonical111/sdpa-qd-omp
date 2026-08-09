@@ -47,7 +47,9 @@ tables, methodology and raw per-repeat data: [BENCHMARKS.md](BENCHMARKS.md) and
 Every modified file carries an in-file, dated change notice (GPLv2 §2a): `sdpa_tool.cpp`,
 `sdpa_newton.cpp`, `sdpa_parts.cpp`.
 
-Build (QD library required, e.g. `libqd-dev`; `-fopenmp` must be passed explicitly):
+Build (QD library required, e.g. `libqd-dev`). Either pass `--enable-openmp`, which since
+patch 4 really does add a working OpenMP flag and fails the configure if it cannot find
+one, or spell the flags out as below — both are covered by CI matrix rows:
 
 ```bash
 ./configure --with-qd-includedir=/usr/include --with-qd-libdir=/usr/lib/x86_64-linux-gnu \

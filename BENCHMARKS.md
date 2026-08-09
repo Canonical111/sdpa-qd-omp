@@ -123,8 +123,8 @@ iteration count, because at least one of the two trajectories was not a solution
 > Two precision statements, kept distinct on purpose: the *kernel* is bit-identical to the
 > serial body by construction and by its own raw-limb test -- 135 NT cases at each of
 > 1/4/8 threads (74 with the production gate open, 61 deliberately
-> below it), with padded leading dimensions, every beta special case and 28960 structural
-> zeros placed in B, every one memcmp-identical (`bench/qd_nt_kernel_check.cpp`, also
+> below it), with padded leading dimensions, every beta special case and 26911 structural
+> zeros placed in the region of B the kernel actually reads, every one memcmp-identical (`bench/qd_nt_kernel_check.cpp`, also
 > `patches/qd_nt_kernel_check.cpp` in the recipe repository; results in
 > `results/qd_nt_kernel_identity.tsv` / `bench/qd_nt_kernel_identity.tsv`). B5's earlier
 > kernel test covered the NN case only and predates the NT commit, so it is not cited for

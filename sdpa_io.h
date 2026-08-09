@@ -51,17 +51,9 @@ public:
 		   int nBlock, int* blockStruct, int* blockType, int* blockNumber,
 		   InputData& inputData, bool isDataSparse);
 
-  // 2008/02/27 kazuhide nakata   
-  // not use
-  static void read(FILE* fpData, int m,
-		   int SDP_nBlock, int* SDP_blockStruct,
-		   int* SDP_CNonZeroCount, int* SDP_ANonZeroCount,
-		   int SOCP_nBlock, int* SOCP_blockStruct,
-		   int* SOCP_CNonZeroCount, int* SOCP_ANonZeroCount,
-		   int LP_nBlock,
-		   bool* LP_CNonZeroCount, bool* LP_ANonZeroCount,
-		   int nBlock, int* blockStruct, int* blockType, int* blockNumber,
-		   bool isDataSparse);
+  /* The second 2008 'not use' overload (the NonZeroCount reader) was removed
+     2026-08-09.  Its implementation went with the disabled block deleted on
+     2026-08-08; this declaration outlived it and referred to nothing. */
 
   /* The 2008 'not use' overload (InputData + long position) was removed
      2026-08-08: never called by any fork, unchecked legacy indexing (review2). */
